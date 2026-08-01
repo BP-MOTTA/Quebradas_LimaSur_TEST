@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quebradas-limasur-test"
+version = "0.1.0"
+description = "Pipeline reproducible para catalogo satelital de quebradas de Lima Este."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "pandas>=2.0",
+  "pydantic>=2.0",
+  "pystac-client>=0.7",
+  "pyproj>=3.6",
+  "pyyaml>=6.0",
+  "shapely>=2.0",
+  "typer>=0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-mock>=3.12",
+  "ruff>=0.5",
+]
+
+[project.scripts]
+quebradas = "quebradas.acquisition.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

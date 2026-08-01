@@ -1,0 +1,45 @@
+project:
+  name: quebradas_lima_este
+  pilot_id: CUSIPATA_20230316
+
+site:
+  quebrada_id: Q_CUSIPATA
+  name: Cusipata / San Bartolomé
+  district: Chaclacayo
+  region: Lima
+  working_crs: EPSG:32718
+  catalog_crs: EPSG:4326
+  aoi_path: data/aoi/cusipata_satellite_aoi.geojson
+
+event:
+  event_id: EVT_CUSIPATA_20230316
+  event_type: debris_flow
+  date: 2023-03-16
+
+search:
+  pre_start: 2023-02-14
+  pre_end: 2023-03-15
+  post_start: 2023-03-17
+  post_end: 2023-04-16
+
+sentinel1:
+  enabled: true
+  collection: sentinel-1-grd
+  acquisition_mode: IW
+  required_polarizations:
+    - VV
+    - VH
+  minimum_aoi_coverage: 0.95
+  require_same_relative_orbit: true
+  require_same_orbit_direction: true
+
+sentinel2:
+  enabled: true
+  collection: sentinel-2-l2a
+  maximum_cloud_cover: 30
+  minimum_aoi_coverage: 0.95
+
+outputs:
+  sentinel1_catalog: metadata/catalogs/sentinel1_candidates.csv
+  sentinel2_catalog: metadata/catalogs/sentinel2_candidates.csv
+  scene_pairs: metadata/catalogs/scene_pairs.csv

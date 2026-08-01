@@ -1,0 +1,94 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "stac_version": "1.0.0",
+      "id": "S2A_PRE_GOOD",
+      "collection": "sentinel-2-l2a",
+      "properties": {
+        "datetime": "2023-03-05T15:00:00Z",
+        "platform": "sentinel-2a",
+        "processing:level": "L2A",
+        "s2:mgrs_tile": "T31NAA",
+        "eo:cloud_cover": 10
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-0.001, -0.001], [0.011, -0.001], [0.011, 0.011], [-0.001, 0.011], [-0.001, -0.001]]]
+      },
+      "links": [{"rel": "self", "href": "https://example.test/stac/S2A_PRE_GOOD.json"}]
+    },
+    {
+      "type": "Feature",
+      "stac_version": "1.0.0",
+      "id": "S2A_POST_GOOD",
+      "collection": "sentinel-2-l2a",
+      "properties": {
+        "datetime": "2023-03-25T15:00:00Z",
+        "platform": "sentinel-2a",
+        "processing:level": "L2A",
+        "s2:mgrs_tile": "T31NAA",
+        "eo:cloud_cover": 20
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-0.001, -0.001], [0.011, -0.001], [0.011, 0.011], [-0.001, 0.011], [-0.001, -0.001]]]
+      },
+      "links": [{"rel": "self", "href": "https://example.test/stac/S2A_POST_GOOD.json"}]
+    },
+    {
+      "type": "Feature",
+      "stac_version": "1.0.0",
+      "id": "S2A_PRE_CLOUDY",
+      "collection": "sentinel-2-l2a",
+      "properties": {
+        "datetime": "2023-03-07T15:00:00Z",
+        "platform": "sentinel-2a",
+        "processing:level": "L2A",
+        "s2:mgrs_tile": "T31NAA",
+        "eo:cloud_cover": 65
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-0.001, -0.001], [0.011, -0.001], [0.011, 0.011], [-0.001, 0.011], [-0.001, -0.001]]]
+      },
+      "links": [{"rel": "self", "href": "https://example.test/stac/S2A_PRE_CLOUDY.json"}]
+    },
+    {
+      "type": "Feature",
+      "stac_version": "1.0.0",
+      "id": "S2A_POST_PARTIAL",
+      "collection": "sentinel-2-l2a",
+      "properties": {
+        "datetime": "2023-03-27T15:00:00Z",
+        "platform": "sentinel-2a",
+        "processing:level": "L2A",
+        "s2:mgrs_tile": "T31NAA",
+        "eo:cloud_cover": 15
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.0], [0.005, 0.0], [0.005, 0.01], [0.0, 0.01], [0.0, 0.0]]]
+      },
+      "links": [{"rel": "self", "href": "https://example.test/stac/S2A_POST_PARTIAL.json"}]
+    },
+    {
+      "type": "Feature",
+      "stac_version": "1.0.0",
+      "id": "S2A_PRE_MISSING_CLOUD",
+      "collection": "sentinel-2-l2a",
+      "properties": {
+        "datetime": "2023-03-08T15:00:00Z",
+        "platform": "sentinel-2a",
+        "processing:level": "L2A",
+        "s2:mgrs_tile": "T31NAA"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-0.001, -0.001], [0.011, -0.001], [0.011, 0.011], [-0.001, 0.011], [-0.001, -0.001]]]
+      },
+      "links": [{"rel": "self", "href": "https://example.test/stac/S2A_PRE_MISSING_CLOUD.json"}]
+    }
+  ]
+}

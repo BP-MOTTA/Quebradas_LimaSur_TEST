@@ -1,0 +1,131 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "stac_version": "1.0.0",
+      "id": "S1A_PRE_GOOD",
+      "collection": "sentinel-1-grd",
+      "properties": {
+        "datetime": "2023-03-10T10:00:00Z",
+        "platform": "sentinel-1a",
+        "sar:product_type": "GRD",
+        "sar:instrument_mode": "IW",
+        "sar:polarizations": ["VV", "VH"],
+        "sat:orbit_state": "descending",
+        "sat:absolute_orbit": 47500,
+        "sat:relative_orbit": 77
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-0.001, -0.001], [0.011, -0.001], [0.011, 0.011], [-0.001, 0.011], [-0.001, -0.001]]]
+      },
+      "links": [{"rel": "self", "href": "https://example.test/stac/S1A_PRE_GOOD.json"}]
+    },
+    {
+      "type": "Feature",
+      "stac_version": "1.0.0",
+      "id": "S1A_POST_GOOD",
+      "collection": "sentinel-1-grd",
+      "properties": {
+        "datetime": "2023-03-20T10:00:00Z",
+        "platform": "sentinel-1a",
+        "sar:product_type": "GRD",
+        "sar:instrument_mode": "IW",
+        "sar:polarizations": ["VV", "VH"],
+        "sat:orbit_state": "descending",
+        "sat:absolute_orbit": 47506,
+        "sat:relative_orbit": 77
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-0.001, -0.001], [0.011, -0.001], [0.011, 0.011], [-0.001, 0.011], [-0.001, -0.001]]]
+      },
+      "links": [{"rel": "self", "href": "https://example.test/stac/S1A_POST_GOOD.json"}]
+    },
+    {
+      "type": "Feature",
+      "stac_version": "1.0.0",
+      "id": "S1A_POST_ORBIT_MISMATCH",
+      "collection": "sentinel-1-grd",
+      "properties": {
+        "datetime": "2023-03-19T10:00:00Z",
+        "platform": "sentinel-1a",
+        "sar:product_type": "GRD",
+        "sar:instrument_mode": "IW",
+        "sar:polarizations": ["VV", "VH"],
+        "sat:orbit_state": "descending",
+        "sat:absolute_orbit": 47505,
+        "sat:relative_orbit": 22
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-0.001, -0.001], [0.011, -0.001], [0.011, 0.011], [-0.001, 0.011], [-0.001, -0.001]]]
+      },
+      "links": [{"rel": "self", "href": "https://example.test/stac/S1A_POST_ORBIT_MISMATCH.json"}]
+    },
+    {
+      "type": "Feature",
+      "stac_version": "1.0.0",
+      "id": "S1A_PRE_PARTIAL",
+      "collection": "sentinel-1-grd",
+      "properties": {
+        "datetime": "2023-03-11T10:00:00Z",
+        "platform": "sentinel-1a",
+        "sar:product_type": "GRD",
+        "sar:instrument_mode": "IW",
+        "sar:polarizations": ["VV", "VH"],
+        "sat:orbit_state": "descending",
+        "sat:absolute_orbit": 47501,
+        "sat:relative_orbit": 77
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[0.0, 0.0], [0.005, 0.0], [0.005, 0.01], [0.0, 0.01], [0.0, 0.0]]]
+      },
+      "links": [{"rel": "self", "href": "https://example.test/stac/S1A_PRE_PARTIAL.json"}]
+    },
+    {
+      "type": "Feature",
+      "stac_version": "1.0.0",
+      "id": "S1A_PRE_POL_MISSING",
+      "collection": "sentinel-1-grd",
+      "properties": {
+        "datetime": "2023-03-09T10:00:00Z",
+        "platform": "sentinel-1a",
+        "sar:product_type": "GRD",
+        "sar:instrument_mode": "IW",
+        "sar:polarizations": ["VV"],
+        "sat:orbit_state": "descending",
+        "sat:absolute_orbit": 47499,
+        "sat:relative_orbit": 77
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-0.001, -0.001], [0.011, -0.001], [0.011, 0.011], [-0.001, 0.011], [-0.001, -0.001]]]
+      },
+      "links": [{"rel": "self", "href": "https://example.test/stac/S1A_PRE_POL_MISSING.json"}]
+    },
+    {
+      "type": "Feature",
+      "stac_version": "1.0.0",
+      "id": "S1A_EVENT_DAY",
+      "collection": "sentinel-1-grd",
+      "properties": {
+        "datetime": "2023-03-16T10:00:00Z",
+        "platform": "sentinel-1a",
+        "sar:product_type": "GRD",
+        "sar:instrument_mode": "IW",
+        "sar:polarizations": ["VV", "VH"],
+        "sat:orbit_state": "descending",
+        "sat:absolute_orbit": 47502,
+        "sat:relative_orbit": 77
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-0.001, -0.001], [0.011, -0.001], [0.011, 0.011], [-0.001, 0.011], [-0.001, -0.001]]]
+      },
+      "links": [{"rel": "self", "href": "https://example.test/stac/S1A_EVENT_DAY.json"}]
+    }
+  ]
+}

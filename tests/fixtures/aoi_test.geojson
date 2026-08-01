@@ -1,0 +1,25 @@
+{
+  "type": "FeatureCollection",
+  "name": "synthetic_aoi_fixture_not_real_cusipata",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "fixture": true,
+        "description": "Synthetic square AOI for automated tests only."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0.0, 0.0],
+            [0.01, 0.0],
+            [0.01, 0.01],
+            [0.0, 0.01],
+            [0.0, 0.0]
+          ]
+        ]
+      }
+    }
+  ]
+}
