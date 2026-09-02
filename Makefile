@@ -16,7 +16,11 @@ test:
 	$(VENV_PYTHON) -m pytest
 
 inventory:
-	@echo "Inventory CLI will be implemented in Phase 4."
+	$(VENV_PYTHON) -m quebradas_limaeste.inventory.cli inventory \
+		--source tests/fixtures/synthetic_indeci_page.html \
+		--source-name "Synthetic COEN fixture" \
+		--source-url "https://coen.example.test/reportes" \
+		--output-dir outputs/inventory/synthetic
 
 gis:
 	@echo "GIS pipeline is not implemented in this phase."
