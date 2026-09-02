@@ -1,0 +1,1 @@
+"""Documentary inventory collector package."""
