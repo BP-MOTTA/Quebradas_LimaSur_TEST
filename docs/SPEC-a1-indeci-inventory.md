@@ -5,15 +5,10 @@
 Build an offline-first documentary inventory collector for INDECI/COEN source
 material related to huayco activation research in Lima Este.
 
-This first implementation establishes the reproducible project structure,
-validated inventory records, offline parsing over synthetic fixtures, and a CLI
-that cannot perform live crawling, historical crawling, PDF downloads, or Google
-Drive uploads without later explicit approval and separate implementation.
-
-The full attached INDECI/COEN requirement is not present in the repository or in
-the visible conversation context. Therefore this spec deliberately avoids
-claiming exact source URLs, real document fields, event labels, coordinates, or
-operational conclusions.
+The implementation establishes the reproducible project structure, validated
+inventory records, offline parsing over synthetic fixtures, and an explicitly
+invoked, bounded live smoke check for public INDECI metadata. Historical
+crawling, PDF downloads, and Google Drive uploads remain disabled.
 
 ## Tech Stack
 
@@ -30,14 +25,13 @@ make setup
 make lint
 make test
 make inventory
+make indeci-live-smoke
 ```
 
-The following capabilities are out of scope for this approved implementation
-unless separately approved:
+The following capabilities remain out of scope unless separately approved:
 
 ```bash
 historical
-live-smoke
 upload-drive
 ```
 
@@ -50,6 +44,10 @@ src/quebradas_limaeste/
     io.py           Safe local file reading and JSON/CSV writing
     models.py       Validated inventory and manifest models
     parser.py       Offline HTML/text extraction over local content
+    indeci_portal.py Pure parser for real portal result-page structure
+    live_smoke.py   Bounded sequential HTTP client and runtime manifest
+src/quebradas/      Explicit top-level CLI entrypoint
+configs/sources/    Strict live-smoke source configuration
 tests/
   fixtures/         Synthetic fixtures only, never real INDECI/COEN downloads
 docs/
@@ -81,11 +79,12 @@ Implementation rules:
 
 ## Testing Strategy
 
-- Unit tests cover model validation, date parsing, URL validation, parser
-  behavior, CLI behavior, and blocked live modes.
+- Unit tests cover model validation, date parsing, URL validation, both parsers,
+  bounded transport behavior, CLI behavior, and blocked historical modes.
 - Fixtures are synthetic and clearly labelled as non-real data.
 - Tests must run offline and must not hit INDECI/COEN, Google Drive, or any
   external network.
+- The live smoke check is run manually and never by Pytest or GitHub Actions.
 
 ## Boundaries
 
@@ -101,9 +100,9 @@ Always:
 Ask first:
 
 - Add runtime dependencies.
-- Enable live crawling, historical crawling, PDF download, or Google Drive
-  upload.
-- Introduce real source URLs, credentials, tokens, or operational workflows.
+- Enable historical crawling, PDF download, or Google Drive upload.
+- Introduce additional real source URLs, credentials, tokens, or operational
+  workflows.
 - Store personal data beyond source metadata needed for traceability.
 
 Never:
@@ -119,16 +118,14 @@ Never:
 - `make setup`, `make lint`, and `make test` are documented and executable.
 - `make inventory` runs offline against synthetic fixtures and writes JSON, CSV,
   and manifest outputs outside Git-tracked raw data.
-- Live, historical, and upload-drive modes fail closed until separately
-  approved.
+- Live smoke requests are explicit, sequential, allowlisted, delayed, bounded,
+  and metadata-only.
+- Historical and upload-drive modes remain disabled.
 - The Git tree contains no real PDFs, raw downloaded files, secrets, or
   credentials.
 - All behavior is covered by offline tests.
 
 ## Open Questions
 
-- The complete INDECI/COEN requirement must be supplied before implementing real
-  source adapters, real field mappings, date windows, or acceptance criteria for
-  historical/live runs.
-- The authoritative source allowlist, crawl cadence, retry policy, PDF retention
-  policy, and Google Drive destination are intentionally undefined.
+- Historical date windows, crawl policy, PDF retention policy, and Google Drive
+  destination remain intentionally undefined.

@@ -124,18 +124,28 @@ Verification:
 - Diff review
 - Secret/PDF scan
 
-### Phase 5: Deferred Live Integrations
+### Phase 5: A1.8 Read-only INDECI live smoke
 
-No implementation in this approved run.
+- Document the observed public portal form, cards, pagination, and empty state.
+- Add a pure parser covered by synthetic offline fixtures.
+- Add a bounded, sequential HTTP client with HTTPS/host/path allowlists,
+  timeout, request delay, retry/backoff, and response-size limits.
+- Add the explicit `python -m quebradas indeci live-smoke` command and
+  `make indeci-live-smoke` wrapper.
+- Record runtime metadata only; never request card, detail, or PDF links.
 
-Future approval is required before adding real crawling, live smoke checks, PDF
-downloads, Google Drive upload, or any real INDECI/COEN source adapter.
+Acceptance:
+
+- Offline tests cover parsing, golden matching, error paths, and CI blocking.
+- One approved live run makes at most four configured single-page queries.
+- Both golden flags and all runtime errors/warnings are explicit.
+- Historical crawling, downloads, and Drive remain disabled.
 
 ## Risks and Mitigations
 
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
-| Missing complete requirement | High | Keep real source adapters out of scope and preserve open questions. |
+| Portal structure changes | High | Fail visibly on unrecognized HTML and keep synthetic contract tests. |
 | Prompt injection in external text | High | Treat parsed HTML/PDF/text as data; never execute embedded instructions. |
 | Accidental real PDF/raw commit | High | `.gitignore`, pre-commit scan, and no real downloads in tests. |
 | Scientific overclaiming | High | Candidate records require human review and no operational conclusions. |
@@ -143,7 +153,6 @@ downloads, Google Drive upload, or any real INDECI/COEN source adapter.
 
 ## Open Questions
 
-- What exact INDECI/COEN pages, date ranges, and source fields are authoritative?
 - What is the retention policy for real PDFs if downloads are later approved?
 - What Google Drive folder and credential model should be used if upload is later
   approved?

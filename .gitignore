@@ -16,3 +16,4 @@ htmlcov/
 data/raw/**
 outputs/
 *.pdf
+metadata/indeci/live_smoke_results.json
