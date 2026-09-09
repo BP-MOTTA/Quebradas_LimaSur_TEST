@@ -201,6 +201,29 @@ Acceptance:
 - The golden Cusipata check reports the observed result without hardcoding it.
 - Historical crawling, OCR, Drive, push, and merge remain disabled.
 
+### Phase 9: A1.12 Real positive event control
+
+- Add content-based fixtures for positive, list-only, missing-site, date
+  separation, and URL/local-file equivalence cases.
+- Route explicit local PDFs and allowlisted URL downloads through one internal
+  document model and one downstream processing function.
+- Preserve local source provenance without copying the PDF into `data/raw/`.
+- Keep positive candidate, audit, and consolidation outputs separate from the
+  IE1496 negative control.
+- Write an ignored golden-control summary containing only document IDs and
+  strong/moderate/weak counts.
+- Validate the real RC630 through its previously observed official URL.
+
+Acceptance:
+
+- Offline tests remain network-free and all review states remain
+  `pending_review`.
+- RC630 is extracted, audited, consolidated, and compared with IE1496 without a
+  report-number-specific rule.
+- Report date and event date remain distinct provenance fields.
+- No real PDF, extracted text, runtime output, credential, or token is tracked.
+- Historical crawling, OCR, Drive, push, and merge remain disabled.
+
 ## Risks and Mitigations
 
 | Risk | Impact | Mitigation |

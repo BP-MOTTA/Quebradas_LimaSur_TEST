@@ -70,8 +70,17 @@ def ingestion_payload():
 def test_cli_runs_explicit_seed_ingestion(monkeypatch, capsys) -> None:
     calls = []
 
-    def fake_execute(config_path, seeds_path, *, allowed_root):
-        calls.append((config_path, seeds_path, allowed_root))
+    def fake_execute(
+        config_path,
+        seeds_path,
+        *,
+        output_path,
+        candidate_output,
+        allowed_root,
+    ):
+        calls.append(
+            (config_path, seeds_path, output_path, candidate_output, allowed_root)
+        )
         return ingestion_payload()
 
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
@@ -99,8 +108,15 @@ def test_cli_runs_explicit_seed_ingestion(monkeypatch, capsys) -> None:
 def test_cli_runs_explicit_url_ingestion(monkeypatch) -> None:
     calls = []
 
-    def fake_execute(config_path, url, *, allowed_root):
-        calls.append((config_path, url, allowed_root))
+    def fake_execute(
+        config_path,
+        url,
+        *,
+        output_path,
+        candidate_output,
+        allowed_root,
+    ):
+        calls.append((config_path, url, output_path, candidate_output, allowed_root))
         return ingestion_payload()
 
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
@@ -119,6 +135,51 @@ def test_cli_runs_explicit_url_ingestion(monkeypatch) -> None:
 
     assert exit_code == 0
     assert calls[0][1].startswith("https://portal.indeci.gob.pe/")
+
+
+def test_cli_runs_local_file_ingestion_offline_inside_github_actions(
+    monkeypatch,
+) -> None:
+    calls = []
+
+    def fake_execute(
+        config_path,
+        file_path,
+        *,
+        source_url,
+        output_path,
+        candidate_output,
+        allowed_root,
+    ):
+        calls.append(
+            (
+                config_path,
+                file_path,
+                source_url,
+                output_path,
+                candidate_output,
+                allowed_root,
+            )
+        )
+        return ingestion_payload()
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(quebradas_cli, "execute_ingest_file", fake_execute)
+
+    exit_code = quebradas_cli.main(
+        [
+            "indeci",
+            "ingest-file",
+            "--config",
+            "configs/indeci.yaml",
+            "--file",
+            "/tmp/REPORTE-COMPLEMENTARIO-Nº-630-03MAR2019.pdf",
+        ]
+    )
+
+    assert exit_code == 0
+    assert str(calls[0][1]).endswith("03MAR2019.pdf")
+    assert calls[0][2] is None
 
 
 def test_cli_blocks_seed_ingestion_inside_github_actions(
@@ -206,3 +267,54 @@ def test_cli_audits_candidates_offline_inside_github_actions(
     assert "strong_cusipata=true" in output
     assert "\x1b" not in output
     assert "\\x1b" in output
+
+
+def test_cli_compares_golden_controls_offline(monkeypatch, capsys) -> None:
+    calls = []
+
+    def fake_execute(negative_audit, positive_audit, *, output_path, allowed_root):
+        calls.append((negative_audit, positive_audit, output_path, allowed_root))
+        return {
+            "negative_control": {
+                "document_id": "INDECI_IE1496_20230505",
+                "strong": 0,
+                "moderate": 0,
+                "weak": 16,
+            },
+            "positive_control": {
+                "document_id": "INDECI_RC630_20190303",
+                "strong": 1,
+                "moderate": 0,
+                "weak": 0,
+            },
+        }
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(
+        quebradas_cli,
+        "execute_golden_control_comparison",
+        fake_execute,
+    )
+
+    exit_code = quebradas_cli.main(
+        [
+            "indeci",
+            "compare-golden-controls",
+            "--negative-audit",
+            "metadata/indeci/negative.csv",
+            "--positive-audit",
+            "metadata/indeci/positive.csv",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls
+    output = capsys.readouterr().out
+    assert (
+        "negative_control=INDECI_IE1496_20230505,"
+        "strong=0,moderate=0,weak=16" in output
+    )
+    assert (
+        "positive_control=INDECI_RC630_20190303,"
+        "strong=1,moderate=0,weak=0" in output
+    )

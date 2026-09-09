@@ -10,15 +10,19 @@ from pathlib import Path
 
 from quebradas_limaeste.inventory.candidate_audit import (
     AUDIT_OUTPUT,
+    CANDIDATE_OUTPUT,
     CONSOLIDATED_OUTPUT,
+    GOLDEN_CONTROLS_OUTPUT,
     QUALITY_CONFIG,
     CandidateAuditError,
     execute_candidate_audit,
+    execute_golden_control_comparison,
 )
 from quebradas_limaeste.inventory.candidate_quality import CandidateQualityError
 from quebradas_limaeste.inventory.ingestion import (
     INGESTION_OUTPUT,
     IngestionError,
+    execute_ingest_file,
     execute_ingest_seeds,
     execute_ingest_url,
 )
@@ -52,6 +56,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_live_smoke(args)
     if args.command == "audit-candidates":
         return _run_candidate_audit(args)
+    if args.command == "compare-golden-controls":
+        return _run_golden_control_comparison(args)
     return _run_ingestion(args)
 
 
@@ -71,24 +77,37 @@ def _run_live_smoke(args: argparse.Namespace) -> int:
 
 
 def _run_ingestion(args: argparse.Namespace) -> int:
+    output_path = Path(args.output)
+    common = {
+        "output_path": output_path,
+        "candidate_output": Path(args.candidate_output),
+        "allowed_root": Path.cwd(),
+    }
     try:
         if args.command == "ingest-url":
             payload = execute_ingest_url(
                 Path(args.config),
                 args.url,
-                allowed_root=Path.cwd(),
+                **common,
+            )
+        elif args.command == "ingest-file":
+            payload = execute_ingest_file(
+                Path(args.config),
+                Path(args.file),
+                source_url=args.source_url,
+                **common,
             )
         else:
             payload = execute_ingest_seeds(
                 Path(args.config),
                 Path(args.seeds),
-                allowed_root=Path.cwd(),
+                **common,
             )
     except (IngestionConfigError, IngestionError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    _print_ingestion_summary(payload)
+    _print_ingestion_summary(payload, output_path=output_path)
     return 1 if payload["errors"] else 0
 
 
@@ -105,6 +124,30 @@ def _run_candidate_audit(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     _print_candidate_audit(payload)
+    return 0
+
+
+def _run_golden_control_comparison(args: argparse.Namespace) -> int:
+    output_path = Path(args.output)
+    try:
+        payload = execute_golden_control_comparison(
+            Path(args.negative_audit),
+            Path(args.positive_audit),
+            output_path=output_path,
+            allowed_root=Path.cwd(),
+        )
+    except (CandidateAuditError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"output={output_path}")
+    for role in ("negative_control", "positive_control"):
+        control = payload[role]
+        print(
+            f"{role}={control['document_id']},"
+            f"strong={control['strong']},"
+            f"moderate={control['moderate']},"
+            f"weak={control['weak']}"
+        )
     return 0
 
 
@@ -128,12 +171,25 @@ def _build_parser() -> argparse.ArgumentParser:
         required=True,
         help="Allowlisted official PDF URL.",
     )
+    _add_ingestion_output_arguments(ingest_url)
+    ingest_file = indeci_commands.add_parser(
+        "ingest-file",
+        help="Ingest one explicitly supplied local PDF without copying it.",
+    )
+    ingest_file.add_argument("--config", required=True, help="Path to source YAML.")
+    ingest_file.add_argument("--file", required=True, help="Path to local PDF.")
+    ingest_file.add_argument(
+        "--source-url",
+        help="Optional known official URL; never inferred from the local file.",
+    )
+    _add_ingestion_output_arguments(ingest_file)
     ingest_seeds = indeci_commands.add_parser(
         "ingest-seeds",
         help="Ingest only explicitly configured official seed documents.",
     )
     ingest_seeds.add_argument("--config", required=True, help="Path to source YAML.")
     ingest_seeds.add_argument("--seeds", required=True, help="Path to seed YAML.")
+    _add_ingestion_output_arguments(ingest_seeds)
     audit = indeci_commands.add_parser(
         "audit-candidates",
         help="Audit and consolidate a local candidate CSV without network access.",
@@ -154,7 +210,39 @@ def _build_parser() -> argparse.ArgumentParser:
         default=str(CONSOLIDATED_OUTPUT),
         help="Consolidated event CSV.",
     )
+    compare_controls = indeci_commands.add_parser(
+        "compare-golden-controls",
+        help="Compare two audited control documents without retaining evidence text.",
+    )
+    compare_controls.add_argument(
+        "--negative-audit",
+        required=True,
+        help="Audited negative-control CSV.",
+    )
+    compare_controls.add_argument(
+        "--positive-audit",
+        required=True,
+        help="Audited positive-control CSV.",
+    )
+    compare_controls.add_argument(
+        "--output",
+        default=str(GOLDEN_CONTROLS_OUTPUT),
+        help="Golden-control JSON summary.",
+    )
     return parser
+
+
+def _add_ingestion_output_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--output",
+        default=str(INGESTION_OUTPUT),
+        help="Ingestion run JSON.",
+    )
+    parser.add_argument(
+        "--candidate-output",
+        default=str(CANDIDATE_OUTPUT),
+        help="Original candidate CSV.",
+    )
 
 
 def _print_live_smoke_summary(payload: dict[str, object]) -> None:
@@ -175,8 +263,12 @@ def _print_live_smoke_summary(payload: dict[str, object]) -> None:
         print(f"error: {error}", file=sys.stderr)
 
 
-def _print_ingestion_summary(payload: dict[str, object]) -> None:
-    print(f"output={INGESTION_OUTPUT}")
+def _print_ingestion_summary(
+    payload: dict[str, object],
+    *,
+    output_path: Path,
+) -> None:
+    print(f"output={output_path}")
     for field in (
         "documents_requested",
         "documents_downloaded",

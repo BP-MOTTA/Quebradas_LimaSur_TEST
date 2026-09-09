@@ -73,6 +73,21 @@ python -m quebradas indeci ingest-url \
   --url "<URL>"
 ```
 
+Las salidas de una ingestion pueden aislarse con `--output` y
+`--candidate-output`. Para procesar un PDF local explicito sin copiarlo a
+`data/raw/`:
+
+```bash
+python -m quebradas indeci ingest-file \
+  --config configs/sources/indeci_cusipata.yaml \
+  --file "/ruta/al/documento.pdf"
+```
+
+`ingest-file` deriva la identidad del nombre original, limita tamano y firma,
+rechaza symlinks y registra ruta original, SHA-256, tamano, paginas y hora UTC.
+`--source-url` es opcional y solo debe usarse cuando la URL oficial ya es
+conocida; nunca se infiere una URL desde el contenido local.
+
 Para ingerir exclusivamente los seed documents aprobados:
 
 ```bash
@@ -95,6 +110,18 @@ candidato con su fuerza y razon de revision, escribe una copia enriquecida en
 `metadata/indeci/events_cusipata_consolidated.csv`. Los tres CSV reales estan
 ignorados por Git. Ningun candidato o cluster cambia automaticamente de
 `pending_review` a validado.
+
+Dos auditorias de control ya separadas pueden resumirse sin conservar sus
+fragmentos documentales:
+
+```bash
+python -m quebradas indeci compare-golden-controls \
+  --negative-audit metadata/indeci/events_cusipata_audit.csv \
+  --positive-audit metadata/indeci/events_cusipata_positive_audit.csv
+```
+
+El resultado runtime `metadata/indeci/golden_controls.json` contiene unicamente
+el `document_id` y los conteos `strong`, `moderate` y `weak` de cada control.
 
 `historical` y `upload-drive` permanecen fuera de alcance. Cualquier barrido
 historico, URL real adicional o uso de Google Drive requiere aprobacion

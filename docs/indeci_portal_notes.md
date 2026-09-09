@@ -168,3 +168,33 @@ Cusipata event did not occur.
 The audit is local and deterministic. It does not rewrite the original
 candidate CSV or ingestion manifest, perform OCR, request another source, or
 convert lexical evidence into scientific ground truth.
+
+## Positive event control (A1.12)
+
+The official RC630 URL recorded during A1.8 was ingested once through the
+allowlisted `ingest-url` path:
+
+https://portal.indeci.gob.pe/wp-content/uploads/2019/02/REPORTE-COMPLEMENTARIO-N%C2%BA-630-03MAR2019-HUAICO-EN-EL-DISTRITO-DE-LURIGANCHO-Y-CHACLACAYO-LIMA-3-1.pdf
+
+The retained runtime PDF is 1,388,256 bytes with SHA-256
+`12d477f82d3c00250224296d26e9ba98df8ea93c798dd0db5d02c1f85a36bc39`.
+PyMuPDF extracted seven pages successfully and did not request OCR.
+
+The content-based classifier found Chaclacayo, Lima, huaico, and plural
+quebrada-activation language. The report date remains `2019-03-03`; the event
+candidate carries the independently extracted date `2019-02-25`. The audit
+produced one strong candidate and one consolidated cluster on page 1. Both
+remain `pending_review`.
+
+The first pass truncated the dated sentence after the start of its quebrada
+list because the bounded snippet split its context evenly around the date. The
+general correction now prefers the containing sentence and recognizes plural
+activation wording. It is content-based and contains no rule for report 630.
+
+The ignored runtime comparison records:
+
+- IE1496 negative control: 0 strong, 0 moderate, 16 weak.
+- RC630 positive control: 1 strong, 0 moderate, 0 weak.
+
+No historical crawl, OCR, Drive operation, automatic validation, push, or merge
+was performed.

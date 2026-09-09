@@ -47,6 +47,68 @@ def test_same_sentence_site_event_location_and_date_is_strong() -> None:
     assert audited.validation_status == "pending_review"
 
 
+def test_positive_control_equivalent_sentence_is_strong() -> None:
+    policy = load_quality_policy(QUALITY_CONFIG)
+    original = make_candidate(
+        "El 25 de febrero de 2019, debido a intensas precipitaciones, "
+        "se activó la quebrada Cusipata en el distrito de Chaclacayo.",
+        event_date=date(2019, 2, 25),
+    )
+
+    audited = audit_candidate(original, policy=policy)
+
+    assert audited is not None
+    assert audited.candidate_strength == "strong"
+    assert audited.site_evidence == "Cusipata"
+    assert audited.date_evidence == "25 de febrero de 2019"
+    assert audited.validation_status == "pending_review"
+
+
+def test_san_bartolome_alias_uses_the_same_content_based_rules() -> None:
+    policy = load_quality_policy(QUALITY_CONFIG)
+    original = make_candidate(
+        "El 25 de febrero de 2019 se activó la quebrada San Bartolomé "
+        "en Chaclacayo.",
+        event_date=date(2019, 2, 25),
+    )
+
+    audited = audit_candidate(original, policy=policy)
+
+    assert audited is not None
+    assert audited.candidate_strength == "strong"
+    assert audited.reported_quebrada == "San Bartolomé"
+    assert audited.canonical_site_id == "quebrada_cusipata_chaclacayo"
+
+
+def test_site_list_without_event_context_is_weak() -> None:
+    policy = load_quality_policy(QUALITY_CONFIG)
+    original = make_candidate(
+        "Cusipata, Huascarán y Los Cóndores",
+        event_date=None,
+    )
+
+    audited = audit_candidate(original, policy=policy)
+
+    assert audited is not None
+    assert audited.candidate_strength == "weak"
+    assert audited.event_evidence is None
+
+
+def test_huaico_in_chaclacayo_without_target_site_is_never_strong() -> None:
+    policy = load_quality_policy(QUALITY_CONFIG)
+    original = make_candidate(
+        "El 25 de febrero de 2019 se registró un huaico en Chaclacayo.",
+        event_date=date(2019, 2, 25),
+    )
+
+    audited = audit_candidate(original, policy=policy)
+
+    assert audited is not None
+    assert audited.candidate_strength != "strong"
+    assert audited.site_evidence is None
+    assert audited.canonical_site_id is None
+
+
 def test_specific_activation_outweighs_trigger_in_same_dated_fact() -> None:
     policy = load_quality_policy(QUALITY_CONFIG)
     original = make_candidate(

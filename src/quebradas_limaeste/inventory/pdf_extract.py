@@ -44,11 +44,16 @@ def extract_pdf_text(
     text_path: Path,
     minimum_text_characters: int,
     allowed_root: Path,
+    source_root: Path | None = None,
 ) -> PDFExtractionResult:
     """Extract normalized text without interpreting or executing its contents."""
     if minimum_text_characters < 1:
         raise PDFExtractionError("minimum_text_characters must be positive")
-    source = _safe_path(pdf_path, allowed_root=allowed_root, must_exist=True)
+    source = _safe_path(
+        pdf_path,
+        allowed_root=source_root or allowed_root,
+        must_exist=True,
+    )
     destination = _safe_path(text_path, allowed_root=allowed_root)
     if source == destination:
         raise PDFExtractionError("PDF and text paths must be different")

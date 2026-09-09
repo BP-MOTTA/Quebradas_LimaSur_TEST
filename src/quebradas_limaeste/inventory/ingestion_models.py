@@ -6,7 +6,7 @@ import json
 import re
 import unicodedata
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlparse
 
@@ -144,6 +144,64 @@ class SeedDocument:
                 "expected_region_terms",
             ),
         )
+
+
+@dataclass(frozen=True)
+class IngestedDocument:
+    """One validated PDF source ready for the shared processing pipeline."""
+
+    document_id: str
+    report_number: str
+    report_type: str
+    report_date: date
+    source_type: str
+    original_filename: str
+    local_path: Path
+    sha256: str
+    file_size: int
+    ingested_at_utc: datetime
+    expected_site_terms: tuple[str, ...]
+    expected_region_terms: tuple[str, ...]
+    source_url: str | None = None
+    original_path: Path | None = None
+    final_url: str | None = None
+    downloaded_at_utc: datetime | None = None
+    http_status: int | None = None
+    content_type: str | None = None
+    download_status: str | None = None
+    warnings: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        result: dict[str, object] = {
+            "document_model": "indeci_pdf_v1",
+            "document_id": self.document_id,
+            "report_number": self.report_number,
+            "report_type": self.report_type,
+            "report_date": self.report_date.isoformat(),
+            "source_type": self.source_type,
+            "ingested_at_utc": self.ingested_at_utc.isoformat(),
+            "sha256": self.sha256,
+            "file_size": self.file_size,
+            "original_filename": self.original_filename,
+            "local_path": str(self.local_path),
+            "warnings": list(self.warnings),
+        }
+        optional: tuple[tuple[str, object | None], ...] = (
+            ("source_url", self.source_url),
+            ("original_path", str(self.original_path) if self.original_path else None),
+            ("final_url", self.final_url),
+            (
+                "downloaded_at_utc",
+                self.downloaded_at_utc.isoformat()
+                if self.downloaded_at_utc
+                else None,
+            ),
+            ("http_status", self.http_status),
+            ("content_type", self.content_type),
+            ("download_status", self.download_status),
+        )
+        result.update({key: value for key, value in optional if value is not None})
+        return result
 
 
 def load_ingestion_policy(path: Path) -> IngestionPolicy:
@@ -286,8 +344,26 @@ def derive_seed_document(url: str, *, policy: IngestionPolicy) -> SeedDocument:
     )
 
 
+def derive_document_identity(filename: str) -> tuple[str, str, str, date]:
+    """Derive INDECI identity from an official-style PDF filename."""
+    if not isinstance(filename, str) or not filename or len(filename) > 500:
+        raise IngestionConfigError("PDF filename is invalid")
+    decoded_filename = unquote(filename)
+    if (
+        PurePosixPath(decoded_filename).name != decoded_filename
+        or "\\" in decoded_filename
+        or not decoded_filename.lower().endswith(".pdf")
+    ):
+        raise IngestionConfigError("PDF filename is invalid")
+    return _derive_identity_from_text(decoded_filename)
+
+
 def _derive_identity(url: str) -> tuple[str, str, str, date]:
     filename = unquote(PurePosixPath(urlparse(url).path).name)
+    return derive_document_identity(filename)
+
+
+def _derive_identity_from_text(filename: str) -> tuple[str, str, str, date]:
     semantic = _semantic_text(filename)
     type_match: tuple[str, str] | None = None
     number: str | None = None

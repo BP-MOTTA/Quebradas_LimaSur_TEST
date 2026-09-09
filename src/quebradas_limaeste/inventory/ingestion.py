@@ -7,6 +7,7 @@ import os
 import time
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
+from hashlib import sha256
 from pathlib import Path
 
 from quebradas_limaeste.inventory.candidate_audit import (
@@ -16,18 +17,23 @@ from quebradas_limaeste.inventory.candidate_audit import (
 from quebradas_limaeste.inventory.document_classification import classify_document
 from quebradas_limaeste.inventory.event_candidates import extract_event_candidates
 from quebradas_limaeste.inventory.ingestion_models import (
+    IngestedDocument,
     IngestionPolicy,
     SeedDocument,
+    derive_document_identity,
     derive_seed_document,
     load_ingestion_policy,
     load_seed_documents,
 )
 from quebradas_limaeste.inventory.pdf_download import (
+    CHUNK_SIZE,
     DownloadError,
+    DownloadResult,
     PDFDownloadTransport,
     download_seed_pdf,
 )
 from quebradas_limaeste.inventory.pdf_extract import (
+    PDF_SIGNATURE,
     PDFExtractionError,
     extract_pdf_text,
 )
@@ -105,6 +111,56 @@ def execute_ingest_url(
     )
 
 
+def execute_ingest_file(
+    config_path: Path,
+    file_path: Path,
+    *,
+    source_url: str | None = None,
+    output_path: Path = INGESTION_OUTPUT,
+    candidate_output: Path = CANDIDATE_OUTPUT,
+    allowed_root: Path,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+) -> dict[str, object]:
+    """Ingest one explicit local PDF without copying it into the workspace."""
+    root = allowed_root.resolve()
+    policy = load_ingestion_policy(_input_path(config_path, root=root))
+    started = _utc_now(now)
+    source = _prepare_local_document(
+        file_path,
+        policy=policy,
+        source_url=source_url,
+        ingested_at=started,
+    )
+    document, extraction_warnings, extraction_error = _process_document(
+        source,
+        policy=policy,
+        root=root,
+    )
+    warnings = [
+        f"{source.document_id}: {warning}"
+        for warning in (*source.warnings, *extraction_warnings)
+    ]
+    errors = (
+        [f"{source.document_id}: {extraction_error}"]
+        if extraction_error is not None
+        else []
+    )
+    return _write_run_outputs(
+        started=started,
+        requested=1,
+        downloaded=0,
+        duplicates=0,
+        download_errors=0,
+        documents=[document],
+        warnings=warnings,
+        errors=errors,
+        output_path=output_path,
+        candidate_output=candidate_output,
+        root=root,
+        now=now,
+    )
+
+
 def _execute(
     seeds: Sequence[SeedDocument],
     *,
@@ -120,6 +176,9 @@ def _execute(
     started = _utc_now(now)
     run_output = _output_path(output_path, root=root)
     registry_output = _output_path(registry_path, root=root)
+    candidate_destination = _output_path(candidate_output, root=root)
+    if len({run_output, registry_output, candidate_destination}) != 3:
+        raise IngestionError("ingestion output paths must be different")
     raw_root = _output_path(RAW_ROOT, root=root)
     registry = _load_registry(registry_output)
     records = list(registry["documents"])
@@ -129,10 +188,6 @@ def _execute(
     downloaded = 0
     duplicates = 0
     download_errors = 0
-    extracted = 0
-    classified = 0
-    candidate_count = 0
-    pending_review = 0
 
     for seed in seeds:
         try:
@@ -157,85 +212,238 @@ def _execute(
         warnings.extend(
             f"{seed.document_id}: {warning}" for warning in download.warnings
         )
-        document = download.to_dict()
-        text_path = (
-            root
-            / INTERIM_ROOT
-            / str(seed.report_date.year)
-            / f"{seed.document_id}.txt"
+        source = _prepare_downloaded_document(seed, download)
+        document, extraction_warnings, extraction_error = _process_document(
+            source,
+            policy=policy,
+            root=root,
         )
-        try:
-            extraction = extract_pdf_text(
-                download.local_path,
-                text_path=text_path,
-                minimum_text_characters=policy.minimum_text_characters,
-                allowed_root=root,
-            )
-        except PDFExtractionError as exc:
-            document.update(
-                {
-                    "page_count": 0,
-                    "text_path": str(text_path),
-                    "extraction_status": "error",
-                    "ocr_required": False,
-                    "classification": None,
-                    "event_candidates": [],
-                }
-            )
-            errors.append(f"{seed.document_id}: {exc}")
-        else:
-            extracted += 1
-            warnings.extend(
-                f"{seed.document_id}: {warning}" for warning in extraction.warnings
-            )
-            classification = classify_document(
-                extraction.full_text,
-                expected_site_terms=seed.expected_site_terms,
-                expected_region_terms=seed.expected_region_terms,
-            )
-            candidates = extract_event_candidates(
-                seed.document_id,
-                extraction.page_texts,
-                expected_site_terms=seed.expected_site_terms,
-                expected_region_terms=seed.expected_region_terms,
-            )
-            classified += 1
-            candidate_count += len(candidates)
-            pending_review += int(classification.review_required) + len(candidates)
-            document.update(extraction.to_dict())
-            document["classification"] = classification.to_dict()
-            document["event_candidates"] = [
-                candidate.to_dict() for candidate in candidates
-            ]
+        warnings.extend(
+            f"{seed.document_id}: {warning}" for warning in extraction_warnings
+        )
+        if extraction_error is not None:
+            errors.append(f"{seed.document_id}: {extraction_error}")
         records = _upsert_registry_record(records, document)
         documents.append(document)
 
+    if documents:
+        _write_json(registry_output, {"documents": records})
+    return _write_run_outputs(
+        started=started,
+        requested=len(seeds),
+        downloaded=downloaded,
+        duplicates=duplicates,
+        download_errors=download_errors,
+        documents=documents,
+        warnings=warnings,
+        errors=errors,
+        output_path=run_output,
+        candidate_output=candidate_destination,
+        root=root,
+        now=now,
+    )
+
+
+def _prepare_downloaded_document(
+    seed: SeedDocument,
+    download: DownloadResult,
+) -> IngestedDocument:
+    return IngestedDocument(
+        document_id=seed.document_id,
+        report_number=seed.report_number,
+        report_type=seed.report_type,
+        report_date=seed.report_date,
+        source_type="official_url",
+        source_url=download.source_url,
+        original_filename=download.original_filename,
+        local_path=download.local_path,
+        sha256=download.sha256,
+        file_size=download.file_size,
+        ingested_at_utc=download.downloaded_at_utc,
+        downloaded_at_utc=download.downloaded_at_utc,
+        expected_site_terms=seed.expected_site_terms,
+        expected_region_terms=seed.expected_region_terms,
+        final_url=download.final_url,
+        http_status=download.http_status,
+        content_type=download.content_type,
+        download_status=download.download_status,
+        warnings=download.warnings,
+    )
+
+
+def _prepare_local_document(
+    file_path: Path,
+    *,
+    policy: IngestionPolicy,
+    source_url: str | None,
+    ingested_at: datetime,
+) -> IngestedDocument:
+    unresolved = file_path if file_path.is_absolute() else Path.cwd() / file_path
+    if unresolved.is_symlink():
+        raise IngestionError("local PDF symlinks are not allowed")
+    try:
+        source = unresolved.resolve(strict=True)
+    except OSError as exc:
+        raise IngestionError("local PDF is missing or inaccessible") from exc
+    if not source.is_file():
+        raise IngestionError("local PDF is not a regular file")
+    file_size = source.stat().st_size
+    if file_size > policy.max_pdf_bytes:
+        raise IngestionError("local PDF exceeds configured byte limit")
+    with source.open("rb") as input_file:
+        if input_file.read(len(PDF_SIGNATURE)) != PDF_SIGNATURE:
+            raise IngestionError("local file does not have a PDF signature")
+
+    identity = derive_document_identity(source.name)
+    normalized_url: str | None = None
+    if source_url is not None:
+        seed = derive_seed_document(source_url, policy=policy)
+        expected = (
+            seed.document_id,
+            seed.report_number,
+            seed.report_type,
+            seed.report_date,
+        )
+        if identity != expected:
+            raise IngestionError("local PDF filename and source URL do not match")
+        normalized_url = seed.source_url
+    document_id, number, report_type, report_date = identity
+    return IngestedDocument(
+        document_id=document_id,
+        report_number=number,
+        report_type=report_type,
+        report_date=report_date,
+        source_type="local_file",
+        source_url=normalized_url,
+        original_path=source,
+        original_filename=source.name,
+        local_path=source,
+        sha256=_file_sha256(source),
+        file_size=file_size,
+        ingested_at_utc=ingested_at,
+        expected_site_terms=policy.expected_site_terms,
+        expected_region_terms=policy.expected_region_terms,
+    )
+
+
+def _process_document(
+    source: IngestedDocument,
+    *,
+    policy: IngestionPolicy,
+    root: Path,
+) -> tuple[dict[str, object], tuple[str, ...], str | None]:
+    document = source.to_dict()
+    text_path = (
+        root
+        / INTERIM_ROOT
+        / str(source.report_date.year)
+        / f"{source.document_id}.txt"
+    )
+    try:
+        extraction = extract_pdf_text(
+            source.local_path,
+            text_path=text_path,
+            minimum_text_characters=policy.minimum_text_characters,
+            allowed_root=root,
+            source_root=source.local_path.parent,
+        )
+    except PDFExtractionError as exc:
+        document.update(
+            {
+                "page_count": 0,
+                "text_path": str(text_path),
+                "extraction_status": "error",
+                "ocr_required": False,
+                "classification": None,
+                "event_candidates": [],
+            }
+        )
+        return document, (), str(exc)
+
+    classification = classify_document(
+        extraction.full_text,
+        expected_site_terms=source.expected_site_terms,
+        expected_region_terms=source.expected_region_terms,
+    )
+    candidates = extract_event_candidates(
+        source.document_id,
+        extraction.page_texts,
+        expected_site_terms=source.expected_site_terms,
+        expected_region_terms=source.expected_region_terms,
+    )
+    document.update(extraction.to_dict())
+    document["classification"] = classification.to_dict()
+    document["event_candidates"] = [candidate.to_dict() for candidate in candidates]
+    return document, extraction.warnings, None
+
+
+def _write_run_outputs(
+    *,
+    started: datetime,
+    requested: int,
+    downloaded: int,
+    duplicates: int,
+    download_errors: int,
+    documents: list[dict[str, object]],
+    warnings: list[str],
+    errors: list[str],
+    output_path: Path,
+    candidate_output: Path,
+    root: Path,
+    now: Callable[[], datetime],
+) -> dict[str, object]:
+    run_output = _output_path(output_path, root=root)
+    candidate_destination = _output_path(candidate_output, root=root)
+    if run_output == candidate_destination:
+        raise IngestionError("ingestion JSON and candidate CSV must be different")
+    extracted = 0
+    classified = 0
+    events = 0
+    reviews = 0
+    for item in documents:
+        if item.get("extraction_status") != "error":
+            extracted += 1
+        classification = item.get("classification")
+        candidates = item.get("event_candidates")
+        if not isinstance(candidates, list):
+            raise IngestionError("processed document candidates are invalid")
+        events += len(candidates)
+        reviews += len(candidates)
+        if isinstance(classification, dict):
+            classified += 1
+            reviews += int(bool(classification.get("review_required")))
     finished = _utc_now(now)
     payload: dict[str, object] = {
         "run_id": f"indeci-ingestion-{started.strftime('%Y%m%dT%H%M%SZ')}",
         "started_at_utc": started.isoformat(),
         "finished_at_utc": finished.isoformat(),
-        "documents_requested": len(seeds),
+        "documents_requested": requested,
         "documents_downloaded": downloaded,
         "duplicates": duplicates,
         "download_errors": download_errors,
         "documents_extracted": extracted,
         "documents_classified": classified,
-        "event_candidates": candidate_count,
-        "items_pending_review": pending_review,
+        "event_candidates": events,
+        "items_pending_review": reviews,
         "documents": documents,
         "warnings": warnings,
         "errors": errors,
     }
-    if documents:
-        _write_json(registry_output, {"documents": records})
     _write_json(run_output, payload)
     write_original_candidates_from_payload(
         payload,
-        output_path=candidate_output,
+        output_path=candidate_destination,
         allowed_root=root,
     )
     return payload
+
+
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as source:
+        while chunk := source.read(CHUNK_SIZE):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _input_path(path: Path, *, root: Path) -> Path:

@@ -1,6 +1,6 @@
 {
   "canonical_site_id": "quebrada_cusipata_chaclacayo",
-  "reported_site_terms": ["Cusipata"],
+  "reported_site_terms": ["Cusipata", "San Bartolomé"],
   "required_location_terms": ["Chaclacayo"],
   "excluded_context_terms": ["Cusco", "Quispicanchi"],
   "non_event_zone_terms": [

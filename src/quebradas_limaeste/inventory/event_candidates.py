@@ -13,6 +13,7 @@ from quebradas_limaeste.inventory.document_classification import (
 )
 
 MAX_SNIPPET_CHARACTERS = 360
+MAX_PREFIX_CHARACTERS = 80
 MAX_CANDIDATES = 500
 _MONTHS = {
     "enero": 1,
@@ -135,15 +136,21 @@ def extract_event_candidates(
 
 
 def _evidence_window(text: str, start: int, end: int) -> str:
-    half_window = MAX_SNIPPET_CHARACTERS // 2
-    left = max(0, start - half_window)
-    right = min(len(text), end + half_window)
+    sentence_start = max(text.rfind(mark, 0, start) for mark in ".!?;") + 1
+    following = [
+        position
+        for mark in ".!?;"
+        if (position := text.find(mark, end)) >= 0
+    ]
+    sentence_end = min(following) + 1 if following else len(text)
+    left = max(sentence_start, start - MAX_PREFIX_CHARACTERS)
+    right = min(sentence_end, left + MAX_SNIPPET_CHARACTERS)
     snippet = text[left:right].strip()
-    if left > 0:
+    if left > sentence_start:
         first_space = snippet.find(" ")
         if first_space >= 0:
             snippet = snippet[first_space + 1 :]
-    if right < len(text):
+    if right < sentence_end:
         last_space = snippet.rfind(" ")
         if last_space >= 0:
             snippet = snippet[:last_space]

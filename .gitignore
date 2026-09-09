@@ -23,3 +23,8 @@ metadata/indeci/document_registry.json
 metadata/indeci/events_cusipata_candidates.csv
 metadata/indeci/events_cusipata_audit.csv
 metadata/indeci/events_cusipata_consolidated.csv
+metadata/indeci/positive_control_ingestion_run.json
+metadata/indeci/events_cusipata_positive_candidates.csv
+metadata/indeci/events_cusipata_positive_audit.csv
+metadata/indeci/events_cusipata_positive_consolidated.csv
+metadata/indeci/golden_controls.json

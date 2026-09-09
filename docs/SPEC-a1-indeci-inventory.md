@@ -108,6 +108,8 @@ Implementation rules:
   bounded snippet, and always remain `pending_review`.
 - Candidate quality tests cover sentence/paragraph/window proximity, non-event
   zones, geographic exclusions, absent dates, and compatible clustering.
+- Positive-control tests cover Cusipata/San Bartolome aliases, report/event date
+  separation, local-file provenance, and equivalent URL/file processing.
 
 ## Boundaries
 
@@ -149,6 +151,10 @@ Never:
   `ocr_required` without invoking OCR.
 - Offline audit leaves original candidates unchanged, preserves exact evidence,
   and emits strong/moderate/weak and consolidated CSV outputs.
+- Explicit local-file ingestion reads the source in place and uses the same
+  extraction, classification, and candidate model as URL ingestion.
+- Golden-control comparison stores only document IDs and strength counts; every
+  source candidate and cluster remains `pending_review`.
 - Consolidation requires compatible document, reported quebrada, event date,
   and event type; every cluster remains `pending_review`.
 - Historical and upload-drive modes remain disabled.

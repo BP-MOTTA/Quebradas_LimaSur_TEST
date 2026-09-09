@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import re
 from hashlib import sha256
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from quebradas_limaeste.inventory.candidate_quality import (
 CANDIDATE_OUTPUT = Path("metadata/indeci/events_cusipata_candidates.csv")
 AUDIT_OUTPUT = Path("metadata/indeci/events_cusipata_audit.csv")
 CONSOLIDATED_OUTPUT = Path("metadata/indeci/events_cusipata_consolidated.csv")
+GOLDEN_CONTROLS_OUTPUT = Path("metadata/indeci/golden_controls.json")
 QUALITY_CONFIG = Path("configs/sources/indeci_candidate_quality.yaml")
 MAX_CSV_BYTES = 10 * 1024 * 1024
 MAX_CANDIDATES = 5_000
@@ -163,6 +165,38 @@ def execute_candidate_audit(
     }
 
 
+def execute_golden_control_comparison(
+    negative_audit: Path,
+    positive_audit: Path,
+    *,
+    output_path: Path = GOLDEN_CONTROLS_OUTPUT,
+    allowed_root: Path,
+) -> dict[str, object]:
+    """Compare two audited controls without retaining their evidence text."""
+    root = allowed_root.resolve()
+    negative_source = _safe_input(
+        negative_audit,
+        root=root,
+        max_bytes=MAX_CSV_BYTES,
+    )
+    positive_source = _safe_input(
+        positive_audit,
+        root=root,
+        max_bytes=MAX_CSV_BYTES,
+    )
+    if negative_source == positive_source:
+        raise CandidateAuditError("golden controls require two audit files")
+    destination = _safe_output(output_path, root=root)
+    if destination in {negative_source, positive_source}:
+        raise CandidateAuditError("golden-control output must not overwrite an input")
+    payload: dict[str, object] = {
+        "negative_control": _audit_control_summary(negative_source),
+        "positive_control": _audit_control_summary(positive_source),
+    }
+    _write_json(destination, payload)
+    return payload
+
+
 def read_original_candidates(
     path: Path,
     *,
@@ -190,6 +224,47 @@ def read_original_candidates(
     if len(set(identifiers)) != len(identifiers):
         raise CandidateAuditError("candidate CSV contains duplicate candidate_id")
     return tuple(candidates)
+
+
+def _audit_control_summary(path: Path) -> dict[str, object]:
+    counts = {strength: 0 for strength in ("strong", "moderate", "weak")}
+    document_ids: set[str] = set()
+    try:
+        with path.open(newline="", encoding="utf-8") as input_file:
+            reader = csv.DictReader(input_file)
+            if tuple(reader.fieldnames or ()) != AUDIT_FIELDS:
+                raise CandidateAuditError("audit CSV columns do not match schema")
+            for row_number, row in enumerate(reader, start=2):
+                if None in row:
+                    raise CandidateAuditError(
+                        f"audit CSV row {row_number} has extra columns"
+                    )
+                if row_number > MAX_CANDIDATES + 1:
+                    raise CandidateAuditError("audit CSV exceeds its row limit")
+                restored = {
+                    key: _restore_cell(value or "") for key, value in row.items()
+                }
+                document_id = restored["source_document_id"]
+                if re.fullmatch(r"[A-Z0-9_]+", document_id) is None:
+                    raise CandidateAuditError(
+                        f"audit CSV row {row_number} has invalid document_id"
+                    )
+                if restored["validation_status"] != "pending_review":
+                    raise CandidateAuditError(
+                        f"audit CSV row {row_number} is not pending_review"
+                    )
+                strength = restored["candidate_strength"]
+                if strength not in counts:
+                    raise CandidateAuditError(
+                        f"audit CSV row {row_number} has invalid strength"
+                    )
+                counts[strength] += 1
+                document_ids.add(document_id)
+    except (OSError, UnicodeError, csv.Error) as exc:
+        raise CandidateAuditError("audit CSV could not be read") from exc
+    if len(document_ids) != 1:
+        raise CandidateAuditError("audit CSV must contain exactly one document_id")
+    return {"document_id": document_ids.pop(), **counts}
 
 
 def _candidates_from_payload(
@@ -358,6 +433,23 @@ def _write_csv(
                 writer.writerow(
                     {key: _protect_cell(str(row.get(key, ""))) for key in fieldnames}
                 )
+            output.flush()
+            os.fsync(output.fileno())
+        part.replace(path)
+    finally:
+        if part.exists():
+            part.unlink()
+
+
+def _write_json(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    part = path.with_name(f"{path.name}.part")
+    if part.exists() or part.is_symlink():
+        raise CandidateAuditError("staging JSON path already exists")
+    serialized = json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=True) + "\n"
+    try:
+        with part.open("x", encoding="utf-8", newline="\n") as output:
+            output.write(serialized)
             output.flush()
             os.fsync(output.fileno())
         part.replace(path)
