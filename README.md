@@ -20,19 +20,31 @@ make test
 make inventory
 make indeci-live-smoke
 make indeci-live-smoke-emergency
+make indeci-ingest-seeds-live
 ```
 
 `make inventory` ejecuta un flujo offline sobre una fixture sintetica de prueba y
 genera `inventory.json`, `inventory.csv` y `manifest.json` bajo `outputs/`.
 Esos archivos son salidas regenerables y no se versionan.
 
-Los dos objetivos `indeci-live-smoke` son los unicos comandos con acceso de red
-habilitado. `make indeci-live-smoke` realiza cuatro consultas GET secuenciales al
+Los dos objetivos `indeci-live-smoke` realizan comprobaciones de metadatos con
+acceso de red. `make indeci-live-smoke` realiza cuatro consultas GET secuenciales al
 archivo de reportes preliminares/complementarios. El objetivo
 `make indeci-live-smoke-emergency` realiza una sola consulta `1496`/`2023` al
 archivo de informes de emergencia. Ambos conservan solo metadatos y escriben la
 ejecucion mas reciente en `metadata/indeci/live_smoke_results.json`; nunca siguen
 los enlaces de las fichas ni descargan PDFs.
+
+`make indeci-ingest-seeds-live` es un flujo distinto y explicito. Descarga solo
+las URLs publicas enumeradas en `configs/sources/indeci_seed_documents.yaml`,
+valida dominio, respuesta y firma PDF, calcula SHA-256, extrae texto con
+PyMuPDF y genera clasificaciones y candidatos que siempre requieren revision
+humana. No descubre URLs, no pagina y esta bloqueado en GitHub Actions.
+
+Los PDFs se conservan sin sobrescritura bajo `data/raw/indeci/`; el texto
+regenerable se escribe bajo `data/interim/indeci/`. Ambos, el registro local y
+`metadata/indeci/ingestion_run.json` estan ignorados por Git. La distribucion o
+despliegue de PyMuPDF debe revisar su licencia AGPL/comercial por separado.
 
 Las configuraciones bajo `configs/sources/` usan sintaxis YAML compatible con
 JSON para evitar dependencias runtime adicionales.
@@ -51,5 +63,22 @@ python -m quebradas indeci live-smoke \
   --config configs/sources/indeci_emergency_1496.yaml
 ```
 
+Para ingerir una URL oficial conocida sin depender de discovery:
+
+```bash
+python -m quebradas indeci ingest-url \
+  --config configs/sources/indeci_cusipata.yaml \
+  --url "<URL>"
+```
+
+Para ingerir exclusivamente los seed documents aprobados:
+
+```bash
+python -m quebradas indeci ingest-seeds \
+  --config configs/sources/indeci_cusipata.yaml \
+  --seeds configs/sources/indeci_seed_documents.yaml
+```
+
 `historical` y `upload-drive` permanecen fuera de alcance. Cualquier barrido
-historico, descarga de PDFs o uso de Google Drive requiere aprobacion separada.
+historico, URL real adicional o uso de Google Drive requiere aprobacion
+separada.

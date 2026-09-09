@@ -9,10 +9,10 @@ offline parser, and CLI.
 
 ## Architecture Decisions
 
-- Use standard-library runtime code first. This avoids unneeded supply-chain
-  risk while the real external-source requirement is still unavailable.
-- Keep live crawling, historical crawling, PDF download, and Google Drive upload
-  fail-closed. They need explicit future approval.
+- Keep standard-library runtime code except where an approved source format
+  requires a bounded dependency. A1.10 uses PyMuPDF only for PDF extraction.
+- Keep broad and historical crawling, unlisted PDF download, and Google Drive
+  upload fail-closed. They need explicit future approval.
 - Use synthetic fixtures only. They are not scientific observations and cannot
   be used as labels or evidence.
 - Emit CSV, JSON, and manifest files for traceability, matching repository rules
@@ -158,6 +158,26 @@ Acceptance:
 - The result reports the 2023 golden flag and any limitation explicitly.
 - Historical crawling, downloads, and Drive remain disabled.
 
+### Phase 7: A1.10 Controlled official PDF ingestion
+
+- Keep discovery separate from direct ingestion of known official URLs.
+- Validate explicit seed identities and allowlisted upload URLs.
+- Download through a bounded, retrying transport to `.part`, verify HTTP 200,
+  PDF signature, size, final URL, and SHA-256, then publish without overwrite.
+- Extract page text with PyMuPDF without OCR; classify with transparent term
+  rules and generate only explicit-date candidates with page evidence.
+- Persist ignored runtime provenance, deduplication state, and run counters.
+- Add explicit `ingest-url`, `ingest-seeds`, and Make entrypoints, blocked in CI.
+
+Acceptance:
+
+- Offline fake-HTTP tests cover downloader failures, deduplication, extraction,
+  classification, evidence, orchestration, and CLI dispatch.
+- One approved seed-only live run downloads only the configured IE1496 URL.
+- Every classification and candidate remains subject to human review.
+- No real PDF, extracted text, runtime registry, or secret is Git-tracked.
+- Historical crawling, OCR, Drive, push, and merge remain disabled.
+
 ## Risks and Mitigations
 
 | Risk | Impact | Mitigation |
@@ -167,6 +187,7 @@ Acceptance:
 | Accidental real PDF/raw commit | High | `.gitignore`, pre-commit scan, and no real downloads in tests. |
 | Scientific overclaiming | High | Candidate records require human review and no operational conclusions. |
 | Dependency supply-chain risk | Medium | Use standard library runtime code first; dev dependencies are limited to Pytest/Ruff. |
+| PyMuPDF license incompatibility | High | Keep this phase local and require an AGPL/commercial compatibility decision before distribution. |
 
 ## Open Questions
 

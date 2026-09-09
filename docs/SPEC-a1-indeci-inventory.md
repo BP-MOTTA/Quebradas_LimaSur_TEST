@@ -7,13 +7,17 @@ material related to huayco activation research in Lima Este.
 
 The implementation establishes the reproducible project structure, validated
 inventory records, offline parsing over synthetic fixtures, and an explicitly
-invoked, bounded live smoke check for public INDECI metadata. Historical
-crawling, PDF downloads, and Google Drive uploads remain disabled.
+invoked, bounded live smoke check for public INDECI metadata. A separate,
+explicit ingestion path validates known official PDF URLs through extraction,
+classification, and review-only event candidates. Historical crawling and
+Google Drive uploads remain disabled.
 
 ## Tech Stack
 
 - Python 3.11 or newer.
-- Runtime dependencies: Python standard library only for the offline collector.
+- Runtime dependencies: Python standard library plus PyMuPDF 1.28.x for local
+  PDF text extraction. Its AGPL/commercial licensing requires a separate
+  compatibility decision before distribution or deployment.
 - Development tools: Pytest for tests and Ruff for linting.
 - Data validation: explicit dataclass constructors and validators, equivalent
   to schema validation for the current no-dependency runtime scope.
@@ -27,6 +31,7 @@ make test
 make inventory
 make indeci-live-smoke
 make indeci-live-smoke-emergency
+make indeci-ingest-seeds-live
 ```
 
 The following capabilities remain out of scope unless separately approved:
@@ -47,6 +52,12 @@ src/quebradas_limaeste/
     parser.py       Offline HTML/text extraction over local content
     indeci_portal.py Pure parser for allowlisted portal archive pages
     live_smoke.py   Bounded sequential HTTP client and runtime manifest
+    ingestion_models.py Strict source policy and known-document identities
+    pdf_download.py Bounded downloader with validation and deduplication
+    pdf_extract.py  PyMuPDF extraction without OCR
+    document_classification.py Deterministic review-first term matching
+    event_candidates.py Explicit-date event hypotheses with page evidence
+    ingestion.py    Controlled orchestration and runtime registry
 src/quebradas/      Explicit top-level CLI entrypoint
 configs/sources/    Strict live-smoke source configuration
 tests/
@@ -86,6 +97,9 @@ Implementation rules:
 - Tests must run offline and must not hit INDECI/COEN, Google Drive, or any
   external network.
 - The live smoke check is run manually and never by Pytest or GitHub Actions.
+- Downloader tests inject fake HTTP and create only synthetic PDFs at runtime.
+- Event candidates require explicit fact-associated dates, retain page and a
+  bounded snippet, and always remain `pending_review`.
 
 ## Boundaries
 
@@ -96,12 +110,12 @@ Always:
   system boundaries.
 - Preserve source traceability for every emitted inventory row.
 - Mark candidate records as requiring human review by default.
-- Keep `data/raw/` immutable.
+- Keep retained files in `data/raw/` immutable after their first atomic write.
 
 Ask first:
 
 - Add runtime dependencies.
-- Enable historical crawling, PDF download, or Google Drive upload.
+- Enable historical crawling, additional real PDF URLs, or Google Drive upload.
 - Introduce additional real source URLs, credentials, tokens, or operational
   workflows.
 - Store personal data beyond source metadata needed for traceability.
@@ -121,6 +135,10 @@ Never:
   and manifest outputs outside Git-tracked raw data.
 - Live smoke requests against the reports and emergency archives are explicit,
   sequential, allowlisted, delayed, bounded, and metadata-only.
+- Known-URL ingestion is independent from discovery, allowlisted, bounded,
+  deduplicated by URL/document ID/SHA-256, and fully traceable.
+- PyMuPDF extraction records page count, normalized text status, and
+  `ocr_required` without invoking OCR.
 - Historical and upload-drive modes remain disabled.
 - The Git tree contains no real PDFs, raw downloaded files, secrets, or
   credentials.
@@ -128,5 +146,7 @@ Never:
 
 ## Open Questions
 
-- Historical date windows, crawl policy, PDF retention policy, and Google Drive
-  destination remain intentionally undefined.
+- Historical date windows, broad crawl policy, long-term PDF retention, and
+  Google Drive destination remain intentionally undefined.
+- PyMuPDF license compatibility for any distributed or deployed artifact must
+  be resolved outside this research-only local phase.

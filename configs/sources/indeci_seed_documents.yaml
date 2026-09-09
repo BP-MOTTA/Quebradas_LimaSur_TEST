@@ -1,0 +1,14 @@
+{
+  "documents": [
+    {
+      "document_id": "INDECI_IE1496_20230505",
+      "report_number": "1496",
+      "report_type": "informe_emergencia",
+      "report_date": "2023-05-05",
+      "source_domain": "portal.indeci.gob.pe",
+      "url": "https://portal.indeci.gob.pe/wp-content/uploads/2023/05/INFORME-DE-EMERGENCIA-N%C2%BA-1496-5MAY2023-LLUVIAS-INTENSAS-EN-EL-DEPARTAMENTO-DE-LIMA-36-DEE.pdf",
+      "expected_site_terms": ["Chaclacayo"],
+      "expected_region_terms": ["Lima"]
+    }
+  ]
+}

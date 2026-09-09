@@ -121,3 +121,32 @@ document exists on the official host. The PDF was not opened or downloaded, and
 no matching detail page was found. The best-supported diagnosis is that this
 document is not exposed by the emergency archive's title/year index. No second
 live-smoke, alternate query, pagination, or broad crawl was performed.
+
+## Discovery and controlled ingestion (A1.10)
+
+The archive limitation is isolated from document processing. Discovery parses
+archive metadata only; controlled ingestion accepts only an explicit URL whose
+host, upload path, filename identity, document number, and date pass strict
+validation. Extraction, classification, and candidate generation operate on
+the retained local file and do not follow links or interpret PDF text as
+instructions.
+
+The initial seed list contains only the public IE1496 URL identified above.
+Adding another real URL, historical crawling, OCR, or Drive integration remains
+outside this phase and requires separate approval.
+
+The single approved A1.10 seed-ingestion run on 2026-09-08 made one successful
+HTTP 200 request and retained the official PDF only in ignored local storage:
+
+- File size: 3,430,300 bytes.
+- SHA-256: `c7732472d799e9c44b83ae1f6737286a20d80cc5cb66ea80530e74cf0b8c8c0e`.
+- Pages: 66; text extraction succeeded and `ocr_required=false`.
+- Classification: `relevant`, with site, region, and event matches; human review
+  remains required.
+- Candidates: 16 across source pages 1 and 2; every candidate is
+  `pending_review`.
+- Runtime warnings and errors: none.
+
+Candidate counts and dates are extraction results for review, not validated
+event labels or scientific ground truth. No historical query, additional URL,
+OCR process, or Drive operation was executed.
