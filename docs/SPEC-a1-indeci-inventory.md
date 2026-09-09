@@ -26,6 +26,7 @@ make lint
 make test
 make inventory
 make indeci-live-smoke
+make indeci-live-smoke-emergency
 ```
 
 The following capabilities remain out of scope unless separately approved:
@@ -44,7 +45,7 @@ src/quebradas_limaeste/
     io.py           Safe local file reading and JSON/CSV writing
     models.py       Validated inventory and manifest models
     parser.py       Offline HTML/text extraction over local content
-    indeci_portal.py Pure parser for real portal result-page structure
+    indeci_portal.py Pure parser for allowlisted portal archive pages
     live_smoke.py   Bounded sequential HTTP client and runtime manifest
 src/quebradas/      Explicit top-level CLI entrypoint
 configs/sources/    Strict live-smoke source configuration
@@ -118,8 +119,8 @@ Never:
 - `make setup`, `make lint`, and `make test` are documented and executable.
 - `make inventory` runs offline against synthetic fixtures and writes JSON, CSV,
   and manifest outputs outside Git-tracked raw data.
-- Live smoke requests are explicit, sequential, allowlisted, delayed, bounded,
-  and metadata-only.
+- Live smoke requests against the reports and emergency archives are explicit,
+  sequential, allowlisted, delayed, bounded, and metadata-only.
 - Historical and upload-drive modes remain disabled.
 - The Git tree contains no real PDFs, raw downloaded files, secrets, or
   credentials.

@@ -2,7 +2,7 @@ PYTHON ?= python3
 VENV ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
 
-.PHONY: setup lint test inventory indeci-live-smoke gis features dataset train evaluate report
+.PHONY: setup lint test inventory indeci-live-smoke indeci-live-smoke-emergency gis features dataset train evaluate report
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -25,6 +25,10 @@ inventory:
 indeci-live-smoke:
 	$(VENV_PYTHON) -m quebradas indeci live-smoke \
 		--config configs/sources/indeci_cusipata.yaml
+
+indeci-live-smoke-emergency:
+	$(VENV_PYTHON) -m quebradas indeci live-smoke \
+		--config configs/sources/indeci_emergency_1496.yaml
 
 gis:
 	@echo "GIS pipeline is not implemented in this phase."

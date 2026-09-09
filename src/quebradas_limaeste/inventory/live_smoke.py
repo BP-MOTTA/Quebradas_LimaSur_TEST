@@ -15,8 +15,8 @@ from urllib.parse import parse_qsl, urlencode, urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from quebradas_limaeste.inventory.indeci_portal import (
+    INDECI_ARCHIVE_PATHS,
     INDECI_PORTAL_HOST,
-    INDECI_RESULTS_PATH,
     MAX_PORTAL_HTML_LENGTH,
     PortalCandidate,
     PortalParseError,
@@ -105,7 +105,10 @@ class LiveSmokeConfig:
     ) -> LiveSmokeConfig:
         safe_portal_url = _validate_portal_request_url(portal_url)
         parsed_portal_url = urlparse(safe_portal_url)
-        if parsed_portal_url.path != INDECI_RESULTS_PATH or parsed_portal_url.query:
+        if (
+            parsed_portal_url.path not in INDECI_ARCHIVE_PATHS
+            or parsed_portal_url.query
+        ):
             raise LiveSmokeConfigError(
                 "portal_url must be the unfiltered archive base URL"
             )
@@ -552,8 +555,10 @@ def _validate_portal_request_url(
         raise LiveSmokeConfigError("portal URL must use https")
     if parsed.hostname != INDECI_PORTAL_HOST:
         raise LiveSmokeConfigError("portal host is not allowlisted")
-    path_pattern = rf"^{re.escape(INDECI_RESULTS_PATH)}(?:page/\d+/)?$"
-    if re.fullmatch(path_pattern, parsed.path) is None:
+    if not any(
+        re.fullmatch(rf"^{re.escape(path)}(?:page/\d+/)?$", parsed.path)
+        for path in INDECI_ARCHIVE_PATHS
+    ):
         raise LiveSmokeConfigError("portal path is not allowlisted")
     query_pairs = parse_qsl(parsed.query, keep_blank_values=True)
     if any(key not in ALLOWED_QUERY_KEYS for key, _ in query_pairs):

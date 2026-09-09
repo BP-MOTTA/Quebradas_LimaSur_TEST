@@ -18,8 +18,14 @@ PORTAL_URL = (
     "https://portal.indeci.gob.pe/informe/"
     "reportes-preliminares-complementarios-emergencias/"
 )
+EMERGENCY_PORTAL_URL = (
+    "https://portal.indeci.gob.pe/informe/informe-de-emergencia/"
+)
 FIXTURE_BYTES = Path("tests/fixtures/synthetic_indeci_live_page.html").read_bytes()
 REPOSITORY_CONFIG = Path("configs/sources/indeci_cusipata.yaml")
+EMERGENCY_REPOSITORY_CONFIG = Path(
+    "configs/sources/indeci_emergency_1496.yaml"
+)
 EMPTY_PAGE = b"""
 <h4>Alertas encontradas: 0</h4>
 <section class="list-news alerts-archive"></section>
@@ -117,6 +123,17 @@ def test_repository_config_contains_four_single_page_queries() -> None:
     ]
 
 
+def test_emergency_config_contains_one_narrow_single_page_query() -> None:
+    config = load_live_smoke_config(EMERGENCY_REPOSITORY_CONFIG)
+
+    assert config.portal_url == EMERGENCY_PORTAL_URL
+    assert config.max_pages_per_query == 1
+    query_values = [
+        (query.title, query.alert_type, query.year) for query in config.queries
+    ]
+    assert query_values == [("1496", "", 2023)]
+
+
 def test_config_rejects_query_parameters_in_base_portal_url() -> None:
     with pytest.raises(LiveSmokeConfigError):
         LiveSmokeConfig.create(
@@ -127,6 +144,40 @@ def test_config_rejects_query_parameters_in_base_portal_url() -> None:
             max_attempts=2,
             max_pages_per_query=1,
             queries=(PortalQuery.create(title="Chaclacayo", year=2019),),
+        )
+
+
+def test_live_smoke_accepts_only_the_allowlisted_emergency_archive() -> None:
+    query = PortalQuery.create(title="1496", year=2023)
+    config = LiveSmokeConfig.create(
+        portal_url=EMERGENCY_PORTAL_URL,
+        request_delay_seconds=1.0,
+        timeout_seconds=10.0,
+        retry_backoff_seconds=1.0,
+        max_attempts=2,
+        max_pages_per_query=1,
+        queries=(query,),
+    )
+    transport = StubTransport(
+        [HttpResponse(status=200, body=FIXTURE_BYTES, content_type="text/html")]
+    )
+
+    result = run_live_smoke(config, transport=transport, sleep=lambda _: None)
+
+    assert transport.urls == [
+        f"{EMERGENCY_PORTAL_URL}?title=1496&tipo_alerta=&anos_alertas=2023"
+    ]
+    assert result.golden_2023_found is True
+
+    with pytest.raises(LiveSmokeConfigError):
+        LiveSmokeConfig.create(
+            portal_url="https://portal.indeci.gob.pe/informe/otro-archivo/",
+            request_delay_seconds=1.0,
+            timeout_seconds=10.0,
+            retry_backoff_seconds=1.0,
+            max_attempts=2,
+            max_pages_per_query=1,
+            queries=(query,),
         )
 
 

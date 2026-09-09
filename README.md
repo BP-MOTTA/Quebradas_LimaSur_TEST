@@ -19,24 +19,36 @@ make lint
 make test
 make inventory
 make indeci-live-smoke
+make indeci-live-smoke-emergency
 ```
 
 `make inventory` ejecuta un flujo offline sobre una fixture sintetica de prueba y
 genera `inventory.json`, `inventory.csv` y `manifest.json` bajo `outputs/`.
 Esos archivos son salidas regenerables y no se versionan.
 
-`make indeci-live-smoke` es el unico comando con acceso de red habilitado. Realiza
-cuatro consultas GET secuenciales y acotadas al portal publico de INDECI, conserva
-solo metadatos y escribe `metadata/indeci/live_smoke_results.json`. No sigue los
-enlaces de las fichas ni descarga PDFs. La configuracion en
-`configs/sources/indeci_cusipata.yaml` usa sintaxis YAML compatible con JSON para
-evitar dependencias runtime adicionales.
+Los dos objetivos `indeci-live-smoke` son los unicos comandos con acceso de red
+habilitado. `make indeci-live-smoke` realiza cuatro consultas GET secuenciales al
+archivo de reportes preliminares/complementarios. El objetivo
+`make indeci-live-smoke-emergency` realiza una sola consulta `1496`/`2023` al
+archivo de informes de emergencia. Ambos conservan solo metadatos y escriben la
+ejecucion mas reciente en `metadata/indeci/live_smoke_results.json`; nunca siguen
+los enlaces de las fichas ni descargan PDFs.
+
+Las configuraciones bajo `configs/sources/` usan sintaxis YAML compatible con
+JSON para evitar dependencias runtime adicionales.
 
 El mismo flujo puede invocarse explicitamente con:
 
 ```bash
 python -m quebradas indeci live-smoke \
   --config configs/sources/indeci_cusipata.yaml
+```
+
+Para comprobar unicamente el informe de emergencia 1496:
+
+```bash
+python -m quebradas indeci live-smoke \
+  --config configs/sources/indeci_emergency_1496.yaml
 ```
 
 `historical` y `upload-drive` permanecen fuera de alcance. Cualquier barrido

@@ -18,6 +18,8 @@ INDECI_PORTAL_HOST = "portal.indeci.gob.pe"
 INDECI_RESULTS_PATH = (
     "/informe/reportes-preliminares-complementarios-emergencias/"
 )
+INDECI_EMERGENCY_PATH = "/informe/informe-de-emergencia/"
+INDECI_ARCHIVE_PATHS = (INDECI_RESULTS_PATH, INDECI_EMERGENCY_PATH)
 MAX_PORTAL_HTML_LENGTH = 2_000_000
 IGNORED_TAGS = frozenset({"script", "style"})
 HTML_VOID_ELEMENTS = frozenset(
@@ -123,9 +125,10 @@ class _CardBuilder:
 
 
 class _PortalHTMLParser(HTMLParser):
-    def __init__(self, *, page_url: str) -> None:
+    def __init__(self, *, page_url: str, archive_path: str) -> None:
         super().__init__(convert_charrefs=True)
         self.page_url = page_url
+        self.archive_path = archive_path
         self.candidates: list[PortalCandidate] = []
         self.warnings: list[str] = []
         self.reported_count: int | None = None
@@ -185,11 +188,15 @@ class _PortalHTMLParser(HTMLParser):
             and attrs_by_name.get("href")
         ):
             try:
-                self.next_page_url = _safe_portal_url(
+                next_page_url, next_archive_path = _safe_archive_page_url(
                     attrs_by_name["href"],
                     base_url=self.page_url,
-                    expected_path_prefix=INDECI_RESULTS_PATH,
                 )
+                if next_archive_path != self.archive_path:
+                    raise InventoryValidationError(
+                        "pagination URL changed the archive path"
+                    )
+                self.next_page_url = next_page_url
             except InventoryValidationError as exc:
                 self.warnings.append(f"pagination URL rejected: {exc}")
 
@@ -298,11 +305,11 @@ def parse_indeci_portal_html(html: str, *, page_url: str) -> PortalParseResult:
     if len(html) > MAX_PORTAL_HTML_LENGTH:
         raise PortalParseError("portal response is too large")
 
-    safe_page_url = _safe_portal_url(
-        page_url,
-        expected_path_prefix=INDECI_RESULTS_PATH,
+    safe_page_url, archive_path = _safe_archive_page_url(page_url)
+    parser = _PortalHTMLParser(
+        page_url=safe_page_url,
+        archive_path=archive_path,
     )
-    parser = _PortalHTMLParser(page_url=safe_page_url)
     parser.feed(html)
     parser.close()
 
@@ -373,6 +380,24 @@ def _safe_portal_url(
     if not parsed.path.startswith(expected_path_prefix):
         raise InventoryValidationError("path is not allowlisted")
     return normalized
+
+
+def _safe_archive_page_url(
+    raw_url: str,
+    *,
+    base_url: str | None = None,
+) -> tuple[str, str]:
+    normalized = normalize_http_url(raw_url, base_url=base_url)
+    parsed = urlparse(normalized)
+    if parsed.scheme != "https":
+        raise InventoryValidationError("portal URLs must use https")
+    if parsed.hostname != INDECI_PORTAL_HOST:
+        raise InventoryValidationError("host is not allowlisted")
+    for archive_path in INDECI_ARCHIVE_PATHS:
+        path_pattern = rf"^{re.escape(archive_path)}(?:page/\d+/)?$"
+        if re.fullmatch(path_pattern, parsed.path) is not None:
+            return normalized, archive_path
+    raise InventoryValidationError("archive path is not allowlisted")
 
 
 def _extract_metadata(

@@ -14,6 +14,9 @@ PORTAL_URL = (
     "https://portal.indeci.gob.pe/informe/"
     "reportes-preliminares-complementarios-emergencias/"
 )
+EMERGENCY_PORTAL_URL = (
+    "https://portal.indeci.gob.pe/informe/informe-de-emergencia/"
+)
 FIXTURE_PATH = Path("tests/fixtures/synthetic_indeci_live_page.html")
 
 
@@ -79,6 +82,27 @@ def test_portal_parser_accepts_explicit_empty_results() -> None:
     assert result.reported_count == 0
     assert result.candidates == ()
     assert result.warnings == ()
+
+
+def test_portal_parser_accepts_emergency_archive_and_its_pagination() -> None:
+    result = parse_indeci_portal_html(
+        f"""
+        <h4>Alertas encontradas: 0</h4>
+        <section class="list-news alerts-archive"></section>
+        <a class="next page-numbers"
+           href="{EMERGENCY_PORTAL_URL}page/2/?title=1496&amp;anos_alertas=2023">
+          Siguiente
+        </a>
+        """,
+        page_url=(
+            f"{EMERGENCY_PORTAL_URL}?title=1496&tipo_alerta=&anos_alertas=2023"
+        ),
+    )
+
+    assert result.reported_count == 0
+    assert result.next_page_url == (
+        f"{EMERGENCY_PORTAL_URL}page/2/?title=1496&anos_alertas=2023"
+    )
 
 
 @pytest.mark.parametrize(
@@ -167,6 +191,25 @@ def test_portal_parser_rejects_untrusted_pagination_as_data() -> None:
     assert result.next_page_url is None
     assert result.warnings == (
         "pagination URL rejected: host is not allowlisted",
+    )
+
+
+def test_portal_parser_rejects_pagination_to_another_allowlisted_archive() -> None:
+    result = parse_indeci_portal_html(
+        f"""
+        <h4>Alertas encontradas: 0</h4>
+        <section class="list-news alerts-archive"></section>
+        <a class="next page-numbers"
+           href="{EMERGENCY_PORTAL_URL}page/2/?title=1496&amp;anos_alertas=2023">
+          Siguiente
+        </a>
+        """,
+        page_url=PORTAL_URL,
+    )
+
+    assert result.next_page_url is None
+    assert result.warnings == (
+        "pagination URL rejected: pagination URL changed the archive path",
     )
 
 

@@ -141,6 +141,23 @@ Acceptance:
 - Both golden flags and all runtime errors/warnings are explicit.
 - Historical crawling, downloads, and Drive remain disabled.
 
+### Phase 6: A1.9 Emergency archive golden-case smoke
+
+- Allowlist the official `/informe/informe-de-emergencia/` archive alongside
+  the existing reports archive.
+- Reuse the pure parser and bounded transport without following card links.
+- Add a dedicated configuration for one `1496`/`2023` single-page query.
+- Add an explicit Make target and document the observed archive structure.
+
+Acceptance:
+
+- Offline tests prove that both approved archives work and all other archive
+  paths remain rejected.
+- One approved live run makes one narrow metadata request, subject only to the
+  existing bounded retry policy.
+- The result reports the 2023 golden flag and any limitation explicitly.
+- Historical crawling, downloads, and Drive remain disabled.
+
 ## Risks and Mitigations
 
 | Risk | Impact | Mitigation |

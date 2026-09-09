@@ -1,0 +1,11 @@
+{
+  "portal_url": "https://portal.indeci.gob.pe/informe/informe-de-emergencia/",
+  "request_delay_seconds": 1.0,
+  "timeout_seconds": 15.0,
+  "retry_backoff_seconds": 2.0,
+  "max_attempts": 2,
+  "max_pages_per_query": 1,
+  "queries": [
+    {"title": "1496", "type": "", "year": 2023}
+  ]
+}

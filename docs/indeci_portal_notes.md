@@ -70,7 +70,7 @@ The inspection query `title=Chaclacayo`, empty `tipo_alerta`, and
 This observation establishes discoverability only; it is not a scientific
 event label, and no PDF was requested.
 
-## Live-smoke result
+## Live-smoke result (A1.8)
 
 The single approved live-smoke run on 2026-09-07 completed four sequential
 single-page requests with no HTTP or parsing errors:
@@ -89,3 +89,35 @@ golden case is indexed under a different archive rather than hidden behind
 pagination in the configured report archive. This is an inference from the
 observed archive structure and bounded result set. No follow-up request,
 alternate-archive query, or broad crawl was performed.
+
+## Alternate emergency archive (A1.9)
+
+The separately approved metadata-only follow-up uses:
+https://portal.indeci.gob.pe/informe/informe-de-emergencia/
+
+Inspection on 2026-09-08 showed the same visible title, type, and year controls,
+the same `Alertas encontradas: N` count, result cards with `DESCARGAR` and
+`Ver más`, and numbered pagination. The archive page reported 6709 entries when
+unfiltered. That total is descriptive portal metadata, not an event count for
+Lima Este.
+
+The implementation allowlists this exact archive path in addition to the A1.8
+reports path. Its dedicated configuration contains only `title=1496`, an empty
+event type, and `year=2023`, capped at one page. Card, detail, and PDF URLs remain
+metadata only and are never requested.
+
+The single approved A1.9 live-smoke run completed one request and parsed one
+valid empty-result page without warnings or errors:
+
+- Pages requested: 1.
+- Documents seen: 0.
+- `golden_2019_found=false` because this run queried only the emergency archive.
+- `golden_2023_found=false` because the archive returned no card for
+  `title=1496` and `year=2023`.
+
+A subsequent exact search limited to the official portal domain exposed the
+expected PDF filename under `/wp-content/uploads/2023/05/`, confirming that the
+document exists on the official host. The PDF was not opened or downloaded, and
+no matching detail page was found. The best-supported diagnosis is that this
+document is not exposed by the emergency archive's title/year index. No second
+live-smoke, alternate query, pagination, or broad crawl was performed.
