@@ -9,8 +9,10 @@ The implementation establishes the reproducible project structure, validated
 inventory records, offline parsing over synthetic fixtures, and an explicitly
 invoked, bounded live smoke check for public INDECI metadata. A separate,
 explicit ingestion path validates known official PDF URLs through extraction,
-classification, and review-only event candidates. Historical crawling and
-Google Drive uploads remain disabled.
+classification, and review-only event candidates. A separate offline quality
+audit records minimal site/event/date evidence, proximity-based strength, and
+non-destructive event clusters. Historical crawling and Google Drive uploads
+remain disabled.
 
 ## Tech Stack
 
@@ -32,6 +34,8 @@ make inventory
 make indeci-live-smoke
 make indeci-live-smoke-emergency
 make indeci-ingest-seeds-live
+python -m quebradas indeci audit-candidates \
+  --input metadata/indeci/events_cusipata_candidates.csv
 ```
 
 The following capabilities remain out of scope unless separately approved:
@@ -58,8 +62,10 @@ src/quebradas_limaeste/
     document_classification.py Deterministic review-first term matching
     event_candidates.py Explicit-date event hypotheses with page evidence
     ingestion.py    Controlled orchestration and runtime registry
+    candidate_quality.py Proximity, evidence, strength, and clustering rules
+    candidate_audit.py Bounded CSV audit and consolidation workflow
 src/quebradas/      Explicit top-level CLI entrypoint
-configs/sources/    Strict live-smoke source configuration
+configs/sources/    Strict source, seed, and quality configuration
 tests/
   fixtures/         Synthetic fixtures only, never real INDECI/COEN downloads
 docs/
@@ -100,6 +106,8 @@ Implementation rules:
 - Downloader tests inject fake HTTP and create only synthetic PDFs at runtime.
 - Event candidates require explicit fact-associated dates, retain page and a
   bounded snippet, and always remain `pending_review`.
+- Candidate quality tests cover sentence/paragraph/window proximity, non-event
+  zones, geographic exclusions, absent dates, and compatible clustering.
 
 ## Boundaries
 
@@ -139,6 +147,10 @@ Never:
   deduplicated by URL/document ID/SHA-256, and fully traceable.
 - PyMuPDF extraction records page count, normalized text status, and
   `ocr_required` without invoking OCR.
+- Offline audit leaves original candidates unchanged, preserves exact evidence,
+  and emits strong/moderate/weak and consolidated CSV outputs.
+- Consolidation requires compatible document, reported quebrada, event date,
+  and event type; every cluster remains `pending_review`.
 - Historical and upload-drive modes remain disabled.
 - The Git tree contains no real PDFs, raw downloaded files, secrets, or
   credentials.

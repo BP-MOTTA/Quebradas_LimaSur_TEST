@@ -9,6 +9,10 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 
+from quebradas_limaeste.inventory.candidate_audit import (
+    CANDIDATE_OUTPUT,
+    write_original_candidates_from_payload,
+)
 from quebradas_limaeste.inventory.document_classification import classify_document
 from quebradas_limaeste.inventory.event_candidates import extract_event_candidates
 from quebradas_limaeste.inventory.ingestion_models import (
@@ -46,6 +50,7 @@ def execute_ingest_seeds(
     *,
     output_path: Path = INGESTION_OUTPUT,
     registry_path: Path = DOCUMENT_REGISTRY,
+    candidate_output: Path = CANDIDATE_OUTPUT,
     allowed_root: Path,
     transport: PDFDownloadTransport | None = None,
     sleep: Callable[[float], None] = time.sleep,
@@ -63,6 +68,7 @@ def execute_ingest_seeds(
         policy=policy,
         output_path=output_path,
         registry_path=registry_path,
+        candidate_output=candidate_output,
         root=root,
         transport=transport,
         sleep=sleep,
@@ -76,6 +82,7 @@ def execute_ingest_url(
     *,
     output_path: Path = INGESTION_OUTPUT,
     registry_path: Path = DOCUMENT_REGISTRY,
+    candidate_output: Path = CANDIDATE_OUTPUT,
     allowed_root: Path,
     transport: PDFDownloadTransport | None = None,
     sleep: Callable[[float], None] = time.sleep,
@@ -90,6 +97,7 @@ def execute_ingest_url(
         policy=policy,
         output_path=output_path,
         registry_path=registry_path,
+        candidate_output=candidate_output,
         root=root,
         transport=transport,
         sleep=sleep,
@@ -103,6 +111,7 @@ def _execute(
     policy: IngestionPolicy,
     output_path: Path,
     registry_path: Path,
+    candidate_output: Path,
     root: Path,
     transport: PDFDownloadTransport | None,
     sleep: Callable[[float], None],
@@ -221,6 +230,11 @@ def _execute(
     if documents:
         _write_json(registry_output, {"documents": records})
     _write_json(run_output, payload)
+    write_original_candidates_from_payload(
+        payload,
+        output_path=candidate_output,
+        allowed_root=root,
+    )
     return payload
 
 

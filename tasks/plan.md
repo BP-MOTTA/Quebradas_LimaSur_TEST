@@ -178,6 +178,29 @@ Acceptance:
 - No real PDF, extracted text, runtime registry, or secret is Git-tracked.
 - Historical crawling, OCR, Drive, push, and merge remain disabled.
 
+### Phase 8: A1.11 Candidate quality audit and consolidation
+
+- Export original ingestion candidates to a separate ignored CSV without
+  rewriting the ingestion manifest.
+- Audit minimal site, event, and date evidence using configurable geographic
+  exclusions and sentence/paragraph/window proximity.
+- Classify each retained candidate as strong, moderate, or weak while keeping
+  `pending_review` mandatory.
+- Exclude Cusipata references tied to Cusco/Quispicanchi and downgrade content,
+  bibliography, header, list, or uncertain contexts.
+- Consolidate only compatible document/quebrada/date/type evidence, preserving
+  every candidate ID, source page, and supporting fragment.
+- Add the offline `audit-candidates` command and document all runtime outputs.
+
+Acceptance:
+
+- Synthetic offline tests cover the seven requested scientific cases and CSV
+  safety boundaries.
+- The 16 original IE1496 candidates can be audited without modifying them.
+- A consolidated CSV is generated and no row becomes validated automatically.
+- The golden Cusipata check reports the observed result without hardcoding it.
+- Historical crawling, OCR, Drive, push, and merge remain disabled.
+
 ## Risks and Mitigations
 
 | Risk | Impact | Mitigation |

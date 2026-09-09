@@ -20,3 +20,6 @@ outputs/
 metadata/indeci/live_smoke_results.json
 metadata/indeci/ingestion_run.json
 metadata/indeci/document_registry.json
+metadata/indeci/events_cusipata_candidates.csv
+metadata/indeci/events_cusipata_audit.csv
+metadata/indeci/events_cusipata_consolidated.csv

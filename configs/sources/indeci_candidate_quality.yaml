@@ -1,0 +1,14 @@
+{
+  "canonical_site_id": "quebrada_cusipata_chaclacayo",
+  "reported_site_terms": ["Cusipata"],
+  "required_location_terms": ["Chaclacayo"],
+  "excluded_context_terms": ["Cusco", "Quispicanchi"],
+  "non_event_zone_terms": [
+    "tabla de contenidos",
+    "bibliograf\u00eda",
+    "referencias documentales",
+    "lista de t\u00e9rminos",
+    "antecedentes"
+  ],
+  "context_window_characters": 240
+}

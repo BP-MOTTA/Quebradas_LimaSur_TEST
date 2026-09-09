@@ -5,6 +5,7 @@ from pathlib import Path
 import pymupdf
 import pytest
 
+from quebradas_limaeste.inventory.candidate_audit import CANDIDATE_OUTPUT
 from quebradas_limaeste.inventory.ingestion import (
     DOCUMENT_REGISTRY,
     INGESTION_OUTPUT,
@@ -125,6 +126,10 @@ def test_ingest_seeds_records_provenance_classification_and_candidates(
     registry = json.loads((tmp_path / DOCUMENT_REGISTRY).read_text())
     assert run_payload == payload
     assert registry["documents"][0]["sha256"] == document["sha256"]
+    candidate_lines = (tmp_path / CANDIDATE_OUTPUT).read_text().splitlines()
+    assert len(candidate_lines) == 2
+    assert "candidate_id" in candidate_lines[0]
+    assert "pending_review" in candidate_lines[1]
 
 
 def test_ingest_seeds_is_idempotent_by_registered_document(tmp_path) -> None:

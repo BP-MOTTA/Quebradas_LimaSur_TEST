@@ -140,3 +140,69 @@ def test_cli_blocks_seed_ingestion_inside_github_actions(
 
     assert exit_code == 2
     assert "disabled in GitHub Actions" in capsys.readouterr().err
+
+
+def test_cli_audits_candidates_offline_inside_github_actions(
+    monkeypatch,
+    capsys,
+) -> None:
+    calls = []
+
+    def fake_execute(
+        input_path,
+        *,
+        config_path,
+        audit_output,
+        consolidated_output,
+        allowed_root,
+    ):
+        calls.append(
+            (input_path, config_path, audit_output, consolidated_output, allowed_root)
+        )
+        return {
+            "candidates_original": 1,
+            "candidates_excluded": 0,
+            "strong": 1,
+            "moderate": 0,
+            "weak": 0,
+            "clusters_consolidated": 1,
+            "pages_audited": [3],
+            "pages_relevant": [3],
+            "strong_cusipata": True,
+            "audit_output": "metadata/indeci/audit.csv",
+            "consolidated_output": "metadata/indeci/consolidated.csv",
+            "audited_candidates": [
+                {
+                    "candidate_id": "indeci-candidate-test",
+                    "source_page": 3,
+                    "event_date": "2023-03-14",
+                    "reported_quebrada": "Cusipata",
+                    "event_type": "activacion_quebrada",
+                    "evidence_snippet": "Synthetic\x1b[31m evidence.",
+                    "matched_terms": ["Cusipata"],
+                    "candidate_strength": "strong",
+                    "review_reason": "site_event_location_date_same_sentence",
+                }
+            ],
+        }
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(quebradas_cli, "execute_candidate_audit", fake_execute)
+
+    exit_code = quebradas_cli.main(
+        [
+            "indeci",
+            "audit-candidates",
+            "--input",
+            "metadata/indeci/events_cusipata_candidates.csv",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls
+    output = capsys.readouterr().out
+    assert "candidate_id=indeci-candidate-test" in output
+    assert "candidate_strength=strong" in output
+    assert "strong_cusipata=true" in output
+    assert "\x1b" not in output
+    assert "\\x1b" in output

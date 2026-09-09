@@ -8,6 +8,14 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from quebradas_limaeste.inventory.candidate_audit import (
+    AUDIT_OUTPUT,
+    CONSOLIDATED_OUTPUT,
+    QUALITY_CONFIG,
+    CandidateAuditError,
+    execute_candidate_audit,
+)
+from quebradas_limaeste.inventory.candidate_quality import CandidateQualityError
 from quebradas_limaeste.inventory.ingestion import (
     INGESTION_OUTPUT,
     IngestionError,
@@ -29,7 +37,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     except SystemExit as exc:
         return int(exc.code)
 
-    if os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
+    network_commands = {"live-smoke", "ingest-url", "ingest-seeds"}
+    if (
+        args.command in network_commands
+        and os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
+    ):
         print(
             f"error: INDECI {args.command} is disabled in GitHub Actions",
             file=sys.stderr,
@@ -38,6 +50,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "live-smoke":
         return _run_live_smoke(args)
+    if args.command == "audit-candidates":
+        return _run_candidate_audit(args)
     return _run_ingestion(args)
 
 
@@ -78,6 +92,22 @@ def _run_ingestion(args: argparse.Namespace) -> int:
     return 1 if payload["errors"] else 0
 
 
+def _run_candidate_audit(args: argparse.Namespace) -> int:
+    try:
+        payload = execute_candidate_audit(
+            Path(args.input),
+            config_path=Path(args.quality_config),
+            audit_output=Path(args.audit_output),
+            consolidated_output=Path(args.consolidated_output),
+            allowed_root=Path.cwd(),
+        )
+    except (CandidateAuditError, CandidateQualityError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    _print_candidate_audit(payload)
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m quebradas")
     domains = parser.add_subparsers(dest="domain", required=True)
@@ -104,6 +134,26 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     ingest_seeds.add_argument("--config", required=True, help="Path to source YAML.")
     ingest_seeds.add_argument("--seeds", required=True, help="Path to seed YAML.")
+    audit = indeci_commands.add_parser(
+        "audit-candidates",
+        help="Audit and consolidate a local candidate CSV without network access.",
+    )
+    audit.add_argument("--input", required=True, help="Original candidate CSV.")
+    audit.add_argument(
+        "--quality-config",
+        default=str(QUALITY_CONFIG),
+        help="Candidate quality policy YAML.",
+    )
+    audit.add_argument(
+        "--audit-output",
+        default=str(AUDIT_OUTPUT),
+        help="Separate audited candidate CSV.",
+    )
+    audit.add_argument(
+        "--consolidated-output",
+        default=str(CONSOLIDATED_OUTPUT),
+        help="Consolidated event CSV.",
+    )
     return parser
 
 
@@ -142,6 +192,55 @@ def _print_ingestion_summary(payload: dict[str, object]) -> None:
         print(f"warning: {warning}", file=sys.stderr)
     for error in payload["errors"]:
         print(f"error: {error}", file=sys.stderr)
+
+
+def _print_candidate_audit(payload: dict[str, object]) -> None:
+    fields = (
+        "candidate_id",
+        "source_page",
+        "event_date",
+        "reported_quebrada",
+        "event_type",
+        "evidence_snippet",
+        "matched_terms",
+        "candidate_strength",
+        "review_reason",
+    )
+    for candidate in payload["audited_candidates"]:
+        print("candidate:")
+        for field in fields:
+            value = candidate[field]
+            if isinstance(value, list):
+                value = "|".join(map(str, value))
+            print(f"{field}={_terminal_safe(value)}")
+    for field in (
+        "candidates_original",
+        "candidates_excluded",
+        "strong",
+        "moderate",
+        "weak",
+        "clusters_consolidated",
+    ):
+        print(f"{field}={payload[field]}")
+    print(f"pages_audited={','.join(map(str, payload['pages_audited']))}")
+    print(f"pages_relevant={','.join(map(str, payload['pages_relevant']))}")
+    print(f"strong_cusipata={str(payload['strong_cusipata']).lower()}")
+    print(f"audit_output={payload['audit_output']}")
+    print(f"consolidated_output={payload['consolidated_output']}")
+
+
+def _terminal_safe(value: object) -> str:
+    text = "" if value is None else str(value)
+    escaped = []
+    for character in text:
+        codepoint = ord(character)
+        if character.isprintable():
+            escaped.append(character)
+        elif codepoint <= 0xFF:
+            escaped.append(f"\\x{codepoint:02x}")
+        else:
+            escaped.append(f"\\u{codepoint:04x}")
+    return "".join(escaped)
 
 
 if __name__ == "__main__":

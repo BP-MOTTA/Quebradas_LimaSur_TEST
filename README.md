@@ -39,7 +39,9 @@ los enlaces de las fichas ni descargan PDFs.
 las URLs publicas enumeradas en `configs/sources/indeci_seed_documents.yaml`,
 valida dominio, respuesta y firma PDF, calcula SHA-256, extrae texto con
 PyMuPDF y genera clasificaciones y candidatos que siempre requieren revision
-humana. No descubre URLs, no pagina y esta bloqueado en GitHub Actions.
+humana. Tambien exporta los candidatos originales a
+`metadata/indeci/events_cusipata_candidates.csv`. No descubre URLs, no pagina y
+esta bloqueado en GitHub Actions.
 
 Los PDFs se conservan sin sobrescritura bajo `data/raw/indeci/`; el texto
 regenerable se escribe bajo `data/interim/indeci/`. Ambos, el registro local y
@@ -78,6 +80,21 @@ python -m quebradas indeci ingest-seeds \
   --config configs/sources/indeci_cusipata.yaml \
   --seeds configs/sources/indeci_seed_documents.yaml
 ```
+
+Para auditar candidatos ya extraidos sin red ni cambios al CSV original:
+
+```bash
+python -m quebradas indeci audit-candidates \
+  --input metadata/indeci/events_cusipata_candidates.csv
+```
+
+La politica de proximidad y exclusiones vive en
+`configs/sources/indeci_candidate_quality.yaml`. El comando muestra cada
+candidato con su fuerza y razon de revision, escribe una copia enriquecida en
+`metadata/indeci/events_cusipata_audit.csv` y la consolidacion no destructiva en
+`metadata/indeci/events_cusipata_consolidated.csv`. Los tres CSV reales estan
+ignorados por Git. Ningun candidato o cluster cambia automaticamente de
+`pending_review` a validado.
 
 `historical` y `upload-drive` permanecen fuera de alcance. Cualquier barrido
 historico, URL real adicional o uso de Google Drive requiere aprobacion

@@ -150,3 +150,21 @@ HTTP 200 request and retained the official PDF only in ignored local storage:
 Candidate counts and dates are extraction results for review, not validated
 event labels or scientific ground truth. No historical query, additional URL,
 OCR process, or Drive operation was executed.
+
+## Candidate quality audit (A1.11)
+
+The offline audit preserved all 16 original A1.10 candidates and classified
+them as 0 strong, 0 moderate, and 16 weak. It produced 16 non-destructive
+clusters across source pages 1 and 2. Every candidate and cluster remains
+`pending_review`.
+
+Several fragments explicitly report activations of other quebradas, including
+Huaycoloro, Caballero/Huarangal, Rio, Mariscal Castilla/Quirio, and Jicamarca.
+However, the extracted 66-page text contains no occurrence of `Cusipata`.
+Consequently, the configured golden check returns `strong_cusipata=false`; this
+is a documentary result for this report and extractor, not evidence that a
+Cusipata event did not occur.
+
+The audit is local and deterministic. It does not rewrite the original
+candidate CSV or ingestion manifest, perform OCR, request another source, or
+convert lexical evidence into scientific ground truth.
