@@ -89,6 +89,16 @@ class _CandidateRow:
     candidate: DiscoveryCandidate
 
 
+@dataclass(frozen=True)
+class DiscoveryDocument:
+    """Validated discovery metadata with its stable downstream identity."""
+
+    document_id: str
+    discovery_id: str
+    candidate: DiscoveryCandidate
+    golden_control: str | None
+
+
 def load_batch_policy(path: Path, *, allowed_root: Path) -> BatchPolicy:
     """Load the strict bounded batch block from JSON-compatible YAML."""
     root = Path(allowed_root).resolve()
@@ -155,6 +165,28 @@ def load_batch_policy(path: Path, *, allowed_root: Path) -> BatchPolicy:
         ),
         regional_terms=_term_tuple(priorities["regional"], "priority_terms.regional"),
         event_terms=_term_tuple(batch["event_terms"], "event_terms"),
+    )
+
+
+def load_discovery_universe(
+    path: Path,
+    *,
+    config_path: Path = SOURCE_CONFIG,
+    allowed_root: Path,
+) -> tuple[DiscoveryDocument, ...]:
+    """Load one immutable discovery snapshot and derive stable document IDs."""
+    root = Path(allowed_root).resolve()
+    policy = load_batch_policy(config_path, allowed_root=root)
+    rows = _load_discovery_rows(path, root=root, policy=policy)
+    document_ids = _document_ids(rows)
+    return tuple(
+        DiscoveryDocument(
+            document_id=document_ids[row.discovery_id],
+            discovery_id=row.discovery_id,
+            candidate=row.candidate,
+            golden_control=_control_name(row.candidate),
+        )
+        for row in sorted(rows, key=_output_key)
     )
 
 

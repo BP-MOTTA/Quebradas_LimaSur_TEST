@@ -39,6 +39,13 @@ from quebradas_limaeste.inventory.discovery import (
     DiscoveryConfigError,
     execute_discovery,
 )
+from quebradas_limaeste.inventory.full_ingestion import (
+    ALL_DOCUMENTS_OUTPUT,
+    ALL_EVENT_CANDIDATES_OUTPUT,
+    ALL_EVENT_CLUSTERS_OUTPUT,
+    FullIngestionError,
+    execute_full_ingestion,
+)
 from quebradas_limaeste.inventory.human_review import (
     DOCUMENT_REVIEW_OUTPUT,
     HUMAN_REVIEW_OUTPUT,
@@ -58,6 +65,11 @@ from quebradas_limaeste.inventory.live_smoke import (
     OUTPUT_FILENAME,
     LiveSmokeConfigError,
     execute_live_smoke,
+)
+from quebradas_limaeste.inventory.review_package import (
+    REVIEW_PACKAGE_OUTPUT,
+    ReviewPackageError,
+    build_review_package,
 )
 from quebradas_limaeste.inventory.triage import (
     BATCH_SELECTION_OUTPUT,
@@ -80,6 +92,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "ingest-url",
         "ingest-seeds",
         "ingest-batch",
+        "ingest-discovery",
     }
     if (
         args.command in network_commands
@@ -99,6 +112,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_select_batch(args)
     if args.command == "ingest-batch":
         return _run_batch_ingestion(args)
+    if args.command == "ingest-discovery":
+        return _run_full_ingestion(args)
+    if args.command == "build-review-package":
+        return _run_build_review_package(args)
     if args.command == "batch-summary":
         return _run_batch_summary(args)
     if args.command == "review-batch":
@@ -187,6 +204,51 @@ def _run_batch_ingestion(args: argparse.Namespace) -> int:
         return 2
     _print_batch_ingestion_summary(payload)
     return 1 if payload["errors"] else 0
+
+
+def _run_full_ingestion(args: argparse.Namespace) -> int:
+    try:
+        payload = execute_full_ingestion(
+            Path(args.discovery),
+            config_path=Path(args.config),
+            allowed_root=Path.cwd(),
+        )
+    except (
+        FullIngestionError,
+        BatchPolicyError,
+        CandidateAuditError,
+        CandidateQualityError,
+        IngestionConfigError,
+        IngestionError,
+        OSError,
+    ) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    _print_full_ingestion_summary(payload)
+    return 1 if payload["errors"] else 0
+
+
+def _run_build_review_package(args: argparse.Namespace) -> int:
+    try:
+        payload = build_review_package(
+            documents_path=Path(args.documents),
+            candidates_path=Path(args.candidates),
+            clusters_path=Path(args.clusters),
+            output_dir=Path(args.output_dir),
+            allowed_root=Path.cwd(),
+        )
+    except (ReviewPackageError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    for field in (
+        "pdfs_copied",
+        "excel_rows",
+        "filename_collisions",
+        "hash_mismatches",
+        "golden_controls_present",
+    ):
+        print(f"{field}={payload[field]}")
+    return 0
 
 
 def _run_batch_summary(args: argparse.Namespace) -> int:
@@ -394,6 +456,44 @@ def _build_parser() -> argparse.ArgumentParser:
         "--allow-large-batch",
         action="store_true",
         help="Explicitly allow the configured maximum to be exceeded.",
+    )
+    ingest_discovery = indeci_commands.add_parser(
+        "ingest-discovery",
+        help="Download and process every row in the fixed discovery snapshot.",
+    )
+    ingest_discovery.add_argument(
+        "--discovery",
+        required=True,
+        help="Approved discovery candidate CSV; expected to contain 131 rows.",
+    )
+    ingest_discovery.add_argument(
+        "--config",
+        default=str(SOURCE_CONFIG),
+        help="Path to source YAML.",
+    )
+    review_package = indeci_commands.add_parser(
+        "build-review-package",
+        help="Build the portable coauthor review package from local outputs.",
+    )
+    review_package.add_argument(
+        "--documents",
+        default=str(ALL_DOCUMENTS_OUTPUT),
+        help="Full document inventory CSV.",
+    )
+    review_package.add_argument(
+        "--candidates",
+        default=str(ALL_EVENT_CANDIDATES_OUTPUT),
+        help="Full audited event candidate CSV.",
+    )
+    review_package.add_argument(
+        "--clusters",
+        default=str(ALL_EVENT_CLUSTERS_OUTPUT),
+        help="Full consolidated event cluster CSV.",
+    )
+    review_package.add_argument(
+        "--output-dir",
+        default=str(REVIEW_PACKAGE_OUTPUT),
+        help="New review package directory; existing content is never overwritten.",
     )
     batch_summary = indeci_commands.add_parser(
         "batch-summary",
@@ -640,6 +740,39 @@ def _print_batch_ingestion_summary(payload: dict[str, object]) -> None:
         "weak_candidates",
         "event_clusters",
         "items_pending_review",
+    ):
+        print(f"{field}={payload[field]}")
+    for year, count in payload["documents_by_year"].items():
+        print(f"year:{year}={count}")
+    for warning in payload["warnings"]:
+        print(f"warning: {_terminal_safe(warning)}", file=sys.stderr)
+    for error in payload["errors"]:
+        print(f"error: {_terminal_safe(error)}", file=sys.stderr)
+
+
+def _print_full_ingestion_summary(payload: dict[str, object]) -> None:
+    for field in (
+        "total_universe",
+        "already_available",
+        "newly_downloaded",
+        "failed",
+        "download_failed",
+        "duplicate_sha",
+        "ocr_required",
+        "documents_relevant",
+        "documents_possible",
+        "documents_irrelevant",
+        "documents_unclassified",
+        "documents_excluded_geography",
+        "priority_p1",
+        "priority_p2",
+        "priority_p3",
+        "priority_p4",
+        "event_candidates",
+        "strong_candidates",
+        "moderate_candidates",
+        "weak_candidates",
+        "event_clusters",
     ):
         print(f"{field}={payload[field]}")
     for year, count in payload["documents_by_year"].items():

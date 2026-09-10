@@ -11,6 +11,7 @@ requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "BP-MOTTA" }]
 dependencies = [
+    "openpyxl>=3.1,<4",
     "PyMuPDF>=1.28,<1.29",
 ]
 

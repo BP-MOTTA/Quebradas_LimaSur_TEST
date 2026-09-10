@@ -97,6 +97,77 @@ def test_cli_blocks_batch_ingestion_inside_github_actions(monkeypatch, capsys) -
     assert "disabled in GitHub Actions" in capsys.readouterr().err
 
 
+def test_cli_blocks_full_ingestion_inside_github_actions(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+
+    exit_code = quebradas_cli.main(
+        [
+            "indeci",
+            "ingest-discovery",
+            "--discovery",
+            "metadata/indeci/discovery_candidates.csv",
+        ]
+    )
+
+    assert exit_code == 2
+    assert "disabled in GitHub Actions" in capsys.readouterr().err
+
+
+def test_cli_runs_full_discovery_ingestion(monkeypatch, capsys) -> None:
+    calls = []
+
+    def fake_execute(discovery_path, *, config_path, allowed_root):
+        calls.append((discovery_path, config_path, allowed_root))
+        return full_ingestion_payload()
+
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.setattr(quebradas_cli, "execute_full_ingestion", fake_execute)
+
+    exit_code = quebradas_cli.main(
+        [
+            "indeci",
+            "ingest-discovery",
+            "--discovery",
+            "metadata/indeci/discovery_candidates.csv",
+        ]
+    )
+
+    assert exit_code == 0
+    assert str(calls[0][0]).endswith("discovery_candidates.csv")
+    output = capsys.readouterr().out
+    assert "total_universe=131" in output
+    assert "priority_p1=4" in output
+    assert "event_clusters=22" in output
+
+
+def test_cli_builds_review_package_offline_in_github_actions(
+    monkeypatch,
+    capsys,
+) -> None:
+    calls = []
+
+    def fake_build(**kwargs):
+        calls.append(kwargs)
+        return {
+            "pdfs_copied": 131,
+            "excel_rows": 131,
+            "filename_collisions": 2,
+            "hash_mismatches": 0,
+            "golden_controls_present": 2,
+        }
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(quebradas_cli, "build_review_package", fake_build)
+
+    exit_code = quebradas_cli.main(["indeci", "build-review-package"])
+
+    assert exit_code == 0
+    assert calls[0]["allowed_root"] == quebradas_cli.Path.cwd()
+    output = capsys.readouterr().out
+    assert "pdfs_copied=131" in output
+    assert "hash_mismatches=0" in output
+
+
 def test_cli_runs_controlled_batch_ingestion(monkeypatch, capsys) -> None:
     calls = []
 
@@ -206,6 +277,35 @@ def batch_payload():
         "event_clusters": 2,
         "items_pending_review": 5,
         "documents_by_year": {"2017": 1, "2019": 2, "2023": 1, "2024": 0},
+        "warnings": [],
+        "errors": [],
+    }
+
+
+def full_ingestion_payload():
+    return {
+        "total_universe": 131,
+        "already_available": 23,
+        "newly_downloaded": 108,
+        "failed": 0,
+        "download_failed": 0,
+        "duplicate_sha": 0,
+        "ocr_required": 0,
+        "documents_relevant": 5,
+        "documents_possible": 60,
+        "documents_irrelevant": 66,
+        "documents_unclassified": 0,
+        "documents_excluded_geography": 66,
+        "priority_p1": 4,
+        "priority_p2": 8,
+        "priority_p3": 53,
+        "priority_p4": 66,
+        "event_candidates": 30,
+        "strong_candidates": 1,
+        "moderate_candidates": 0,
+        "weak_candidates": 29,
+        "event_clusters": 22,
+        "documents_by_year": {"2017": 6, "2019": 4, "2023": 41, "2024": 80},
         "warnings": [],
         "errors": [],
     }

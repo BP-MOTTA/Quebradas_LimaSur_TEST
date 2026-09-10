@@ -38,3 +38,9 @@ metadata/indeci/review_queue.csv
 metadata/indeci/batch_run.json
 metadata/indeci/document_review.csv
 metadata/indeci/human_review.csv
+metadata/indeci/all_documents.csv
+metadata/indeci/all_event_candidates.csv
+metadata/indeci/all_event_clusters.csv
+metadata/indeci/duplicate_review.csv
+metadata/indeci/full_ingestion_run.json
+review_packages/

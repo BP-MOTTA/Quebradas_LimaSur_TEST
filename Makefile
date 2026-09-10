@@ -6,6 +6,7 @@ VENV_PYTHON := $(VENV)/bin/python
 .PHONY: indeci-ingest-seeds-live indeci-discovery-dry-run indeci-discovery-live
 .PHONY: indeci-batch-select indeci-batch-live indeci-batch-summary
 .PHONY: indeci-review-batch indeci-review-summary
+.PHONY: indeci-full-ingest indeci-build-review-package
 .PHONY: gis features dataset train evaluate report
 
 setup:
@@ -74,6 +75,15 @@ indeci-review-batch:
 
 indeci-review-summary:
 	$(VENV_PYTHON) -m quebradas indeci review-summary
+
+indeci-full-ingest:
+	@test "$$GITHUB_ACTIONS" != "true" || \
+		(echo "INDECI full ingestion is disabled in GitHub Actions" >&2; exit 2)
+	$(VENV_PYTHON) -m quebradas indeci ingest-discovery \
+		--discovery metadata/indeci/discovery_candidates.csv
+
+indeci-build-review-package:
+	$(VENV_PYTHON) -m quebradas indeci build-review-package
 
 gis:
 	@echo "GIS pipeline is not implemented in this phase."

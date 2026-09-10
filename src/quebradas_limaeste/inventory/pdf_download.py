@@ -205,6 +205,7 @@ def download_discovered_pdf(
     transport: PDFDownloadTransport | None = None,
     sleep: Callable[[float], None] = time.sleep,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    preserve_original_filename: bool = False,
 ) -> DownloadResult:
     """Download one selected discovery URL without inventing report metadata."""
     if re.fullmatch(r"[A-Z0-9_]{1,120}", document_id) is None:
@@ -233,6 +234,7 @@ def download_discovered_pdf(
         transport=transport,
         sleep=sleep,
         now=now,
+        preserve_original_filename=preserve_original_filename,
         validate_final_url=lambda value: _validate_discovered_final_url(
             value,
             source=source,
@@ -251,13 +253,18 @@ def _download_pdf(
     sleep: Callable[[float], None],
     now: Callable[[], datetime],
     validate_final_url: Callable[[str], None],
+    preserve_original_filename: bool = False,
 ) -> DownloadResult:
     timestamp = now()
     if timestamp.tzinfo is None:
         raise DownloadError("download timestamp must be timezone-aware")
     timestamp = timestamp.astimezone(UTC)
     records = tuple(existing_records)
-    root, target = _target_path(raw_root, source)
+    root, target = _target_path(
+        raw_root,
+        source,
+        preserve_original_filename=preserve_original_filename,
+    )
 
     prior = _find_prior_identity(source, records)
     if prior is not None:
@@ -388,14 +395,39 @@ def _download_pdf(
 def _target_path(
     raw_root: Path,
     source: _DownloadSource,
+    *,
+    preserve_original_filename: bool = False,
 ) -> tuple[Path, Path]:
     root = Path(raw_root).resolve()
-    target = (
-        root / str(source.storage_year) / f"{source.document_id}.pdf"
-    ).resolve()
+    year_root = root / str(source.storage_year)
+    filename = f"{source.document_id}.pdf"
+    canonical_target = year_root / filename
+    if (
+        preserve_original_filename
+        and not canonical_target.exists()
+        and not canonical_target.is_symlink()
+        and _portable_original_name(source.original_filename)
+    ):
+        original_target = year_root / source.original_filename
+        if not original_target.exists() and not original_target.is_symlink():
+            filename = source.original_filename
+    target = (year_root / filename).resolve()
     if root not in target.parents:
         raise DownloadError("download path escapes the configured raw root")
+    if target.is_symlink():
+        raise DownloadError("download target symlinks are not allowed")
     return root, target
+
+
+def _portable_original_name(value: str) -> bool:
+    return (
+        Path(value).name == value
+        and not value.startswith(".")
+        and value.lower().endswith(".pdf")
+        and len(value.encode("utf-8")) <= 220
+        and not any(ord(character) < 32 for character in value)
+        and not set(value) & set('<>:"/\\|?*')
+    )
 
 
 def _validate_seed_final_url(

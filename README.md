@@ -26,6 +26,8 @@ make indeci-batch-select
 make indeci-batch-summary
 make indeci-review-batch
 make indeci-review-summary
+make indeci-full-ingest
+make indeci-build-review-package
 ```
 
 `make inventory` ejecuta un flujo offline sobre una fixture sintetica de prueba y
@@ -156,6 +158,35 @@ Los modos de solo lectura, sin red ni escritura, son:
 python -m quebradas indeci review-batch --summary
 python -m quebradas indeci review-summary
 ```
+
+La ingesta completa A1.16 consume exclusivamente el snapshot local ya aprobado
+de 131 candidatos. No ejecuta discovery y queda deshabilitada en GitHub Actions:
+
+```bash
+python -m quebradas indeci ingest-discovery \
+  --discovery metadata/indeci/discovery_candidates.csv
+```
+
+El flujo reutiliza el registro y los raw existentes, descarga solo faltantes de
+forma secuencial y procesa cada documento con el pipeline validado. Los raw no se
+sobrescriben ni se renombran; las descargas nuevas conservan el basename oficial
+cuando es portable y no colisiona. Los resultados completos se escriben en
+`all_documents.csv`, `all_event_candidates.csv`, `all_event_clusters.csv`,
+`duplicate_review.csv` y `full_ingestion_run.json` bajo `metadata/indeci/`.
+
+Una vez disponibles los PDFs, el paquete para el coautor se construye offline:
+
+```bash
+python -m quebradas indeci build-review-package
+```
+
+El directorio `review_packages/indeci_all/` contiene una sola copia física de
+cada PDF bajo P1-P4, un mapa verificable raw-copia y los índices CSV/XLSX. El
+constructor se niega a reemplazar un paquete existente para proteger cualquier
+avance humano. P1-P4 solo ordena revisión: no valida eventos, no excluye
+documentos y no crea `training_label`. La fecha de evento solo procede de
+evidencia extraída; nunca se sustituye por la fecha del reporte. El contrato
+completo se documenta en `docs/indeci_full_ingestion.md`.
 
 Las opciones de ruta de ambos comandos permiten revisar un batch aislado dentro
 del workspace. El contrato de campos y las salvaguardas se detallan en
