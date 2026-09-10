@@ -64,6 +64,9 @@ src/quebradas_limaeste/
     ingestion.py    Controlled orchestration and runtime registry
     candidate_quality.py Proximity, evidence, strength, and clustering rules
     candidate_audit.py Bounded CSV audit and consolidation workflow
+    human_review.py Document-first review orchestration and console packets
+    human_review_models.py Review schemas, decisions, and closed vocabularies
+    human_review_store.py Strict automatic-input joins and protected CSV state
 src/quebradas/      Explicit top-level CLI entrypoint
 configs/sources/    Strict source, seed, and quality configuration
 tests/
@@ -110,6 +113,9 @@ Implementation rules:
   zones, geographic exclusions, absent dates, and compatible clustering.
 - Positive-control tests cover Cusipata/San Bartolome aliases, report/event date
   separation, local-file provenance, and equivalent URL/file processing.
+- Human-review tests cover document grouping and priority, resumable sessions,
+  immutable decisions, stale automatic evidence, controls, summaries, and the
+  absence of automatic training labels.
 
 ## Boundaries
 
@@ -155,6 +161,9 @@ Never:
   extraction, classification, and candidate model as URL ingestion.
 - Golden-control comparison stores only document IDs and strength counts; every
   source candidate and cluster remains `pending_review`.
+- Human review keeps automatic evidence immutable, stores document and cluster
+  decisions separately, excludes golden controls from new review work, and
+  marks changed automatic evidence stale without altering prior decisions.
 - Consolidation requires compatible document, reported quebrada, event date,
   and event type; every cluster remains `pending_review`.
 - Historical and upload-drive modes remain disabled.

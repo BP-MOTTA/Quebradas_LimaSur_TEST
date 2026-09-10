@@ -24,6 +24,8 @@ make indeci-ingest-seeds-live
 make indeci-discovery-dry-run
 make indeci-batch-select
 make indeci-batch-summary
+make indeci-review-batch
+make indeci-review-summary
 ```
 
 `make inventory` ejecuta un flujo offline sobre una fixture sintetica de prueba y
@@ -126,6 +128,38 @@ python -m quebradas indeci batch-summary
 `candidate_strength=strong` no significa `ground_truth=1`. Documentos,
 candidatos y clusters siguen pendientes de revision humana; el batch no valida
 evidencia automaticamente.
+
+La revision cientifica local se organiza primero por documento y luego por sus
+clusters y fragmentos de evidencia:
+
+```bash
+python -m quebradas indeci review-batch
+```
+
+Cada documento completado se guarda en
+`metadata/indeci/document_review.csv`; cada decision de cluster se guarda en
+`metadata/indeci/human_review.csv`. Ambos archivos son estado curado local,
+estan ignorados por Git y deben respaldarse fuera del repositorio. Una sesion
+interrumpida continua con el siguiente documento pendiente y nunca reemplaza
+una decision existente. Si cambia la evidencia automatica, la siguiente sesion
+interactiva conserva las decisiones y marca `review_stale=true`.
+
+El packet compacto muestra solo metadatos, candidatos y fragmentos acotados ya
+presentes en los CSV; nunca abre el PDF ni muestra su texto completo. Los
+controles RC630 e IE1496 aparecen como `golden_control=true`, pero no entran en
+la carga de nueva validacion. `human_inventory_decision=include` es una decision
+de inventario y no crea `training_label` ni ground truth.
+
+Los modos de solo lectura, sin red ni escritura, son:
+
+```bash
+python -m quebradas indeci review-batch --summary
+python -m quebradas indeci review-summary
+```
+
+Las opciones de ruta de ambos comandos permiten revisar un batch aislado dentro
+del workspace. El contrato de campos y las salvaguardas se detallan en
+`docs/indeci_human_review.md`.
 
 Para comprobar unicamente el informe de emergencia 1496:
 

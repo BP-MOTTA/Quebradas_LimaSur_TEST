@@ -36,3 +36,5 @@ metadata/indeci/batch_event_candidates.csv
 metadata/indeci/batch_event_clusters.csv
 metadata/indeci/review_queue.csv
 metadata/indeci/batch_run.json
+metadata/indeci/document_review.csv
+metadata/indeci/human_review.csv

@@ -9,6 +9,9 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from quebradas_limaeste.inventory.batch_ingestion import (
+    BATCH_DOCUMENTS_OUTPUT,
+    BATCH_EVENT_CANDIDATES_OUTPUT,
+    BATCH_EVENT_CLUSTERS_OUTPUT,
     BATCH_RUN_OUTPUT,
     BatchIngestionError,
     execute_ingest_batch,
@@ -35,6 +38,13 @@ from quebradas_limaeste.inventory.discovery import (
 from quebradas_limaeste.inventory.discovery import (
     DiscoveryConfigError,
     execute_discovery,
+)
+from quebradas_limaeste.inventory.human_review import (
+    DOCUMENT_REVIEW_OUTPUT,
+    HUMAN_REVIEW_OUTPUT,
+    HumanReviewError,
+    execute_review_batch,
+    execute_review_summary,
 )
 from quebradas_limaeste.inventory.ingestion import (
     INGESTION_OUTPUT,
@@ -91,6 +101,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_batch_ingestion(args)
     if args.command == "batch-summary":
         return _run_batch_summary(args)
+    if args.command == "review-batch":
+        return _run_review_batch(args)
+    if args.command == "review-summary":
+        return _run_review_summary(args)
     if args.command == "audit-candidates":
         return _run_candidate_audit(args)
     if args.command == "compare-golden-controls":
@@ -183,6 +197,44 @@ def _run_batch_summary(args: argparse.Namespace) -> int:
         )
         print(format_batch_summary(payload))
     except (BatchIngestionError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+def _run_review_batch(args: argparse.Namespace) -> int:
+    try:
+        execute_review_batch(
+            documents_path=Path(args.documents),
+            selection_path=Path(args.selection),
+            candidates_path=Path(args.candidates),
+            clusters_path=Path(args.clusters),
+            document_review_path=Path(args.document_review),
+            human_review_path=Path(args.human_review),
+            allowed_root=Path.cwd(),
+            summary_only=args.summary,
+            reviewer=args.reviewer,
+            output_func=print,
+        )
+    except (HumanReviewError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    return 0
+
+
+def _run_review_summary(args: argparse.Namespace) -> int:
+    try:
+        execute_review_summary(
+            documents_path=Path(args.documents),
+            selection_path=Path(args.selection),
+            candidates_path=Path(args.candidates),
+            clusters_path=Path(args.clusters),
+            document_review_path=Path(args.document_review),
+            human_review_path=Path(args.human_review),
+            allowed_root=Path.cwd(),
+            output_func=print,
+        )
+    except (HumanReviewError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     return 0
@@ -352,6 +404,25 @@ def _build_parser() -> argparse.ArgumentParser:
         default=str(BATCH_RUN_OUTPUT),
         help="Batch run manifest JSON.",
     )
+    review_batch = indeci_commands.add_parser(
+        "review-batch",
+        help="Review one local INDECI batch document by document.",
+    )
+    _add_review_path_arguments(review_batch)
+    review_batch.add_argument(
+        "--summary",
+        action="store_true",
+        help="Print compact evidence packets without writing review decisions.",
+    )
+    review_batch.add_argument(
+        "--reviewer",
+        help="Reviewer identifier; prompted interactively when omitted.",
+    )
+    review_summary = indeci_commands.add_parser(
+        "review-summary",
+        help="Print aggregate local human-review status without writing files.",
+    )
+    _add_review_path_arguments(review_summary)
     ingest_url = indeci_commands.add_parser(
         "ingest-url",
         help="Ingest one explicitly supplied official PDF URL.",
@@ -433,6 +504,39 @@ def _add_ingestion_output_arguments(parser: argparse.ArgumentParser) -> None:
         "--candidate-output",
         default=str(CANDIDATE_OUTPUT),
         help="Original candidate CSV.",
+    )
+
+
+def _add_review_path_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--documents",
+        default=str(BATCH_DOCUMENTS_OUTPUT),
+        help="Automatic batch document CSV.",
+    )
+    parser.add_argument(
+        "--selection",
+        default=str(BATCH_SELECTION_OUTPUT),
+        help="Batch selection CSV.",
+    )
+    parser.add_argument(
+        "--candidates",
+        default=str(BATCH_EVENT_CANDIDATES_OUTPUT),
+        help="Automatic event candidate CSV.",
+    )
+    parser.add_argument(
+        "--clusters",
+        default=str(BATCH_EVENT_CLUSTERS_OUTPUT),
+        help="Automatic event cluster CSV.",
+    )
+    parser.add_argument(
+        "--document-review",
+        default=str(DOCUMENT_REVIEW_OUTPUT),
+        help="Curated document decision CSV.",
+    )
+    parser.add_argument(
+        "--human-review",
+        default=str(HUMAN_REVIEW_OUTPUT),
+        help="Curated event decision CSV.",
     )
 
 

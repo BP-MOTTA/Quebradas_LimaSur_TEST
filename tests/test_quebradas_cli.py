@@ -149,6 +149,45 @@ def test_cli_prints_batch_summary_offline_inside_github_actions(
     assert "2019: 2" in output
 
 
+def test_cli_runs_review_batch_summary_offline_inside_github_actions(
+    monkeypatch,
+    capsys,
+) -> None:
+    calls = []
+
+    def fake_execute(**kwargs):
+        calls.append(kwargs)
+        kwargs["output_func"]("DOCUMENTOS\n----------\nrequiring_review: 21")
+        return {"documents_requiring_review": 21}
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(quebradas_cli, "execute_review_batch", fake_execute)
+
+    exit_code = quebradas_cli.main(["indeci", "review-batch", "--summary"])
+
+    assert exit_code == 0
+    assert calls[0]["summary_only"] is True
+    assert calls[0]["reviewer"] is None
+    assert "requiring_review: 21" in capsys.readouterr().out
+
+
+def test_cli_prints_review_summary_offline(monkeypatch, capsys) -> None:
+    calls = []
+
+    def fake_execute(**kwargs):
+        calls.append(kwargs)
+        kwargs["output_func"]("EVENTOS\npending: 12")
+        return {"event_status": {"pending": 12}}
+
+    monkeypatch.setattr(quebradas_cli, "execute_review_summary", fake_execute)
+
+    exit_code = quebradas_cli.main(["indeci", "review-summary"])
+
+    assert exit_code == 0
+    assert calls[0]["allowed_root"] == quebradas_cli.Path.cwd()
+    assert "pending: 12" in capsys.readouterr().out
+
+
 def batch_payload():
     return {
         "documents_selected": 4,

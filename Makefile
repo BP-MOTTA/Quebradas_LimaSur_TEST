@@ -5,6 +5,7 @@ VENV_PYTHON := $(VENV)/bin/python
 .PHONY: setup lint test inventory indeci-live-smoke indeci-live-smoke-emergency
 .PHONY: indeci-ingest-seeds-live indeci-discovery-dry-run indeci-discovery-live
 .PHONY: indeci-batch-select indeci-batch-live indeci-batch-summary
+.PHONY: indeci-review-batch indeci-review-summary
 .PHONY: gis features dataset train evaluate report
 
 setup:
@@ -67,6 +68,12 @@ indeci-batch-live:
 
 indeci-batch-summary:
 	$(VENV_PYTHON) -m quebradas indeci batch-summary
+
+indeci-review-batch:
+	$(VENV_PYTHON) -m quebradas indeci review-batch
+
+indeci-review-summary:
+	$(VENV_PYTHON) -m quebradas indeci review-summary
 
 gis:
 	@echo "GIS pipeline is not implemented in this phase."
