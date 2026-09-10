@@ -217,7 +217,7 @@ def load_ingestion_policy(path: Path) -> IngestionPolicy:
         "queries",
         "ingestion",
     }
-    if set(raw) != required_root_keys:
+    if set(raw) not in (required_root_keys, required_root_keys | {"discovery"}):
         raise IngestionConfigError("source config keys do not match ingestion schema")
     ingestion = raw["ingestion"]
     if not isinstance(ingestion, dict) or set(ingestion) != {

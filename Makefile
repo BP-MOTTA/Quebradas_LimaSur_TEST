@@ -2,7 +2,9 @@ PYTHON ?= python3
 VENV ?= .venv
 VENV_PYTHON := $(VENV)/bin/python
 
-.PHONY: setup lint test inventory indeci-live-smoke indeci-live-smoke-emergency indeci-ingest-seeds-live gis features dataset train evaluate report
+.PHONY: setup lint test inventory indeci-live-smoke indeci-live-smoke-emergency
+.PHONY: indeci-ingest-seeds-live indeci-discovery-dry-run indeci-discovery-live
+.PHONY: gis features dataset train evaluate report
 
 setup:
 	$(PYTHON) -m venv $(VENV)
@@ -36,6 +38,20 @@ indeci-ingest-seeds-live:
 	$(VENV_PYTHON) -m quebradas indeci ingest-seeds \
 		--config configs/sources/indeci_cusipata.yaml \
 		--seeds configs/sources/indeci_seed_documents.yaml
+
+indeci-discovery-dry-run:
+	$(VENV_PYTHON) -m quebradas indeci discover \
+		--config configs/sources/indeci_cusipata.yaml \
+		--years 2017,2019,2023,2024 \
+		--dry-run
+
+indeci-discovery-live:
+	@test "$$GITHUB_ACTIONS" != "true" || \
+		(echo "INDECI discovery is disabled in GitHub Actions" >&2; exit 2)
+	$(VENV_PYTHON) -m quebradas indeci discover \
+		--config configs/sources/indeci_cusipata.yaml \
+		--years 2017,2019,2023,2024 \
+		--dry-run
 
 gis:
 	@echo "GIS pipeline is not implemented in this phase."

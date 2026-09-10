@@ -11,6 +11,24 @@
     {"title": "Chaclacayo", "type": "", "year": 2023},
     {"title": "1496", "type": "", "year": 2023}
   ],
+  "discovery": {
+    "allowed_years": [2017, 2019, 2023, 2024],
+    "max_pages_per_query": 1,
+    "queries": [
+      {"title": "Lurigancho", "year": 2017},
+      {"title": "huaico", "year": 2017},
+      {"title": "huayco", "year": 2017},
+      {"title": "Chaclacayo", "year": 2019},
+      {"title": "630", "year": 2019},
+      {"title": "flujo de detritos", "year": 2019},
+      {"title": "Lurigancho-Chosica", "year": 2023},
+      {"title": "1496", "year": 2023},
+      {"title": "lluvias intensas", "year": 2023},
+      {"title": "Lima", "year": 2024},
+      {"title": "activación de quebrada", "year": 2024}
+    ],
+    "seed_config": "configs/sources/indeci_seed_documents.yaml"
+  },
   "ingestion": {
     "allowed_domains": ["portal.indeci.gob.pe"],
     "expected_site_terms": ["Chaclacayo"],

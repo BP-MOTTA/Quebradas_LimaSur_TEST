@@ -21,6 +21,7 @@ make inventory
 make indeci-live-smoke
 make indeci-live-smoke-emergency
 make indeci-ingest-seeds-live
+make indeci-discovery-dry-run
 ```
 
 `make inventory` ejecuta un flujo offline sobre una fixture sintetica de prueba y
@@ -43,6 +44,15 @@ humana. Tambien exporta los candidatos originales a
 `metadata/indeci/events_cusipata_candidates.csv`. No descubre URLs, no pagina y
 esta bloqueado en GitHub Actions.
 
+`make indeci-discovery-dry-run` consulta secuencialmente una sola pagina por
+consulta en los dos archivos publicos documentados de INDECI y agrega las URLs
+seed como un tercer mecanismo separado. Se limita a 2017, 2019, 2023 y 2024;
+solo escribe metadatos en `metadata/indeci/discovery_candidates.csv` y
+`metadata/indeci/discovery_run.json`. No sigue enlaces, no descarga PDFs y no
+ejecuta ingestion. `make indeci-discovery-live` ejecuta el mismo dry-run de red
+de forma explicita y permanece fuera de CI. Las fuentes y sus limitaciones se
+describen en `docs/indeci_discovery_sources.md`.
+
 Los PDFs se conservan sin sobrescritura bajo `data/raw/indeci/`; el texto
 regenerable se escribe bajo `data/interim/indeci/`. Ambos, el registro local y
 `metadata/indeci/ingestion_run.json` estan ignorados por Git. La distribucion o
@@ -57,6 +67,19 @@ El mismo flujo puede invocarse explicitamente con:
 python -m quebradas indeci live-smoke \
   --config configs/sources/indeci_cusipata.yaml
 ```
+
+El discovery controlado puede invocarse con:
+
+```bash
+python -m quebradas indeci discover \
+  --config configs/sources/indeci_cusipata.yaml \
+  --years 2017,2019,2023,2024 \
+  --dry-run
+```
+
+La ausencia de un documento en uno o ambos indices no demuestra que el
+documento no exista. El CSV conserva fuentes intentadas, fuentes coincidentes y
+estado de deduplicacion para revision posterior.
 
 Para comprobar unicamente el informe de emergencia 1496:
 

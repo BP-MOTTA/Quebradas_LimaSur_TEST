@@ -19,6 +19,16 @@ from quebradas_limaeste.inventory.candidate_audit import (
     execute_golden_control_comparison,
 )
 from quebradas_limaeste.inventory.candidate_quality import CandidateQualityError
+from quebradas_limaeste.inventory.discovery import (
+    CANDIDATES_OUTPUT as DISCOVERY_CANDIDATES_OUTPUT,
+)
+from quebradas_limaeste.inventory.discovery import (
+    RUN_OUTPUT as DISCOVERY_RUN_OUTPUT,
+)
+from quebradas_limaeste.inventory.discovery import (
+    DiscoveryConfigError,
+    execute_discovery,
+)
 from quebradas_limaeste.inventory.ingestion import (
     INGESTION_OUTPUT,
     IngestionError,
@@ -41,7 +51,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     except SystemExit as exc:
         return int(exc.code)
 
-    network_commands = {"live-smoke", "ingest-url", "ingest-seeds"}
+    network_commands = {"live-smoke", "discover", "ingest-url", "ingest-seeds"}
     if (
         args.command in network_commands
         and os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
@@ -54,6 +64,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "live-smoke":
         return _run_live_smoke(args)
+    if args.command == "discover":
+        return _run_discovery(args)
     if args.command == "audit-candidates":
         return _run_candidate_audit(args)
     if args.command == "compare-golden-controls":
@@ -74,6 +86,24 @@ def _run_live_smoke(args: argparse.Namespace) -> int:
 
     _print_live_smoke_summary(payload)
     return 1 if payload["errors"] else 0
+
+
+def _run_discovery(args: argparse.Namespace) -> int:
+    try:
+        years = _parse_years(args.years)
+        payload = execute_discovery(
+            Path(args.config),
+            years=years,
+            candidates_output=Path(args.candidates_output),
+            run_output=Path(args.run_output),
+            allowed_root=Path.cwd(),
+        )
+    except (DiscoveryConfigError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    _print_discovery_summary(payload)
+    return 0
 
 
 def _run_ingestion(args: argparse.Namespace) -> int:
@@ -161,6 +191,32 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Run a bounded, read-only metadata check against the public portal.",
     )
     live_smoke.add_argument("--config", required=True, help="Path to live-smoke YAML.")
+    discover = indeci_commands.add_parser(
+        "discover",
+        help="Discover bounded INDECI metadata without downloading documents.",
+    )
+    discover.add_argument("--config", required=True, help="Path to source YAML.")
+    discover.add_argument(
+        "--years",
+        required=True,
+        help="Comma-separated subset of the configured pilot years.",
+    )
+    discover.add_argument(
+        "--dry-run",
+        action="store_true",
+        required=True,
+        help="Required metadata-only mode; no document ingestion is implemented.",
+    )
+    discover.add_argument(
+        "--candidates-output",
+        default=str(DISCOVERY_CANDIDATES_OUTPUT),
+        help="Discovery candidate CSV.",
+    )
+    discover.add_argument(
+        "--run-output",
+        default=str(DISCOVERY_RUN_OUTPUT),
+        help="Discovery run manifest JSON.",
+    )
     ingest_url = indeci_commands.add_parser(
         "ingest-url",
         help="Ingest one explicitly supplied official PDF URL.",
@@ -261,6 +317,48 @@ def _print_live_smoke_summary(payload: dict[str, object]) -> None:
         print(f"warning: {warning}", file=sys.stderr)
     for error in payload["errors"]:
         print(f"error: {error}", file=sys.stderr)
+
+
+def _print_discovery_summary(payload: dict[str, object]) -> None:
+    print("metric\tvalue")
+    for field in (
+        "requests",
+        "pages",
+        "candidates_raw",
+        "candidates_unique",
+        "duplicates",
+    ):
+        print(f"{field}\t{payload[field]}")
+    for year, count in payload["candidates_by_year"].items():
+        print(f"year:{year}\t{count}")
+    for connector, count in payload["candidates_by_connector"].items():
+        print(f"connector:{connector}\t{count}")
+    for field in (
+        "golden_rc630_discovered",
+        "golden_ie1496_discovered",
+        "golden_ie1496_available_as_seed",
+    ):
+        print(f"{field}\t{str(payload[field]).lower()}")
+    for golden in ("golden_rc630_connectors", "golden_ie1496_connectors"):
+        print(f"{golden}\t{','.join(payload[golden]) or 'none'}")
+    for attempt in payload["connectors_attempted"]:
+        print(f"status:{attempt['connector']}\t{attempt['status']}")
+    print(f"candidates_output\t{payload['candidates_output']}")
+    print(f"run_output\t{payload['run_output']}")
+    for warning in payload["warnings"]:
+        print(f"warning: {_terminal_safe(warning)}", file=sys.stderr)
+    for error in payload["errors"]:
+        print(f"error: {_terminal_safe(error)}", file=sys.stderr)
+
+
+def _parse_years(value: str) -> tuple[int, ...]:
+    try:
+        parts = tuple(part.strip() for part in value.split(","))
+        if not parts or any(not part for part in parts):
+            raise ValueError
+        return tuple(int(part) for part in parts)
+    except (AttributeError, ValueError) as exc:
+        raise DiscoveryConfigError("years must be comma-separated integers") from exc
 
 
 def _print_ingestion_summary(

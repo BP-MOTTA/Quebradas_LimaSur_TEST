@@ -12,6 +12,111 @@ def test_cli_blocks_live_smoke_inside_github_actions(monkeypatch, capsys) -> Non
     assert "disabled in GitHub Actions" in capsys.readouterr().err
 
 
+def test_cli_blocks_discovery_inside_github_actions(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+
+    exit_code = quebradas_cli.main(
+        [
+            "indeci",
+            "discover",
+            "--config",
+            "unused.yaml",
+            "--years",
+            "2017,2019,2023,2024",
+            "--dry-run",
+        ]
+    )
+
+    assert exit_code == 2
+    assert "disabled in GitHub Actions" in capsys.readouterr().err
+
+
+def test_cli_runs_explicit_discovery_dry_run(monkeypatch, capsys) -> None:
+    calls = []
+
+    def fake_execute(
+        config_path,
+        *,
+        years,
+        candidates_output,
+        run_output,
+        allowed_root,
+    ):
+        calls.append(
+            (
+                config_path,
+                years,
+                candidates_output,
+                run_output,
+                allowed_root,
+            )
+        )
+        return {
+            "requests": 4,
+            "pages": 4,
+            "candidates_raw": 3,
+            "candidates_unique": 2,
+            "duplicates": 1,
+            "candidates_by_year": {"2019": 1, "2023": 1},
+            "candidates_by_connector": {
+                "archive_emergencias": 1,
+                "archive_informes": 1,
+                "seed_discovery": 1,
+            },
+            "golden_rc630_discovered": True,
+            "golden_rc630_connectors": ["archive_informes"],
+            "golden_ie1496_discovered": False,
+            "golden_ie1496_connectors": [],
+            "golden_ie1496_available_as_seed": True,
+            "connectors_attempted": [
+                {"connector": "archive_informes", "status": "success"}
+            ],
+            "candidates_output": "metadata/indeci/discovery_candidates.csv",
+            "run_output": "metadata/indeci/discovery_run.json",
+            "warnings": [],
+            "errors": [],
+        }
+
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.setattr(quebradas_cli, "execute_discovery", fake_execute)
+
+    exit_code = quebradas_cli.main(
+        [
+            "indeci",
+            "discover",
+            "--config",
+            "configs/sources/indeci_cusipata.yaml",
+            "--years",
+            "2017,2019,2023,2024",
+            "--dry-run",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls[0][1] == (2017, 2019, 2023, 2024)
+    output = capsys.readouterr().out
+    assert "requests\t4" in output
+    assert "year:2019\t1" in output
+    assert "connector:archive_informes\t1" in output
+    assert "golden_rc630_discovered\ttrue" in output
+
+
+def test_cli_discovery_requires_dry_run(capsys) -> None:
+    exit_code = quebradas_cli.main(
+        [
+            "indeci",
+            "discover",
+            "--config",
+            "unused.yaml",
+            "--years",
+            "2019",
+        ]
+    )
+
+    assert exit_code == 2
+    assert "--dry-run" in capsys.readouterr().err
+
+
 def test_cli_runs_live_smoke_only_after_explicit_subcommand(
     monkeypatch,
     capsys,

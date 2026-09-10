@@ -28,3 +28,5 @@ metadata/indeci/events_cusipata_positive_candidates.csv
 metadata/indeci/events_cusipata_positive_audit.csv
 metadata/indeci/events_cusipata_positive_consolidated.csv
 metadata/indeci/golden_controls.json
+metadata/indeci/discovery_candidates.csv
+metadata/indeci/discovery_run.json
