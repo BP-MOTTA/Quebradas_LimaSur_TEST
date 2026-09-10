@@ -4,6 +4,7 @@ VENV_PYTHON := $(VENV)/bin/python
 
 .PHONY: setup lint test inventory indeci-live-smoke indeci-live-smoke-emergency
 .PHONY: indeci-ingest-seeds-live indeci-discovery-dry-run indeci-discovery-live
+.PHONY: indeci-batch-select indeci-batch-live indeci-batch-summary
 .PHONY: gis features dataset train evaluate report
 
 setup:
@@ -52,6 +53,20 @@ indeci-discovery-live:
 		--config configs/sources/indeci_cusipata.yaml \
 		--years 2017,2019,2023,2024 \
 		--dry-run
+
+indeci-batch-select:
+	$(VENV_PYTHON) -m quebradas indeci select-batch \
+		--discovery metadata/indeci/discovery_candidates.csv \
+		--max-documents 25
+
+indeci-batch-live:
+	@test "$$GITHUB_ACTIONS" != "true" || \
+		(echo "INDECI batch ingestion is disabled in GitHub Actions" >&2; exit 2)
+	$(VENV_PYTHON) -m quebradas indeci ingest-batch \
+		--selection metadata/indeci/batch_selection.csv
+
+indeci-batch-summary:
+	$(VENV_PYTHON) -m quebradas indeci batch-summary
 
 gis:
 	@echo "GIS pipeline is not implemented in this phase."

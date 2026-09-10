@@ -35,5 +35,24 @@
     "expected_region_terms": ["Lima"],
     "max_pdf_bytes": 52428800,
     "minimum_text_characters": 200
+  },
+  "batch": {
+    "max_documents": 25,
+    "max_per_year": 6,
+    "priority_terms": {
+      "high": ["Chaclacayo"],
+      "medium": ["Lurigancho", "Chosica", "Lurigancho-Chosica"],
+      "regional": ["Lima"]
+    },
+    "event_terms": [
+      "huaico",
+      "huayco",
+      "lluvias intensas",
+      "activación",
+      "activacion",
+      "flujo de detritos",
+      "flujo de lodo",
+      "movimiento en masa"
+    ]
   }
 }

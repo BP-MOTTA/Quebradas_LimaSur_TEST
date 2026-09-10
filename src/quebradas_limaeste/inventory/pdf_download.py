@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 from collections.abc import Callable, Iterable
 from contextlib import suppress
@@ -19,6 +20,7 @@ from quebradas_limaeste.inventory.ingestion_models import (
     IngestionPolicy,
     SeedDocument,
     derive_seed_document,
+    validate_pdf_source_url,
 )
 
 INGESTION_USER_AGENT = (
@@ -71,6 +73,14 @@ class DownloadResult:
             "download_status": self.download_status,
             "warnings": list(self.warnings),
         }
+
+
+@dataclass(frozen=True)
+class _DownloadSource:
+    document_id: str
+    source_url: str
+    original_filename: str
+    storage_year: int
 
 
 class PDFDownloadTransport(Protocol):
@@ -162,23 +172,103 @@ def download_seed_pdf(
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> DownloadResult:
     """Download one approved seed and atomically publish it after validation."""
+    source = _DownloadSource(
+        document_id=seed.document_id,
+        source_url=seed.source_url,
+        original_filename=seed.original_filename,
+        storage_year=seed.report_date.year,
+    )
+    return _download_pdf(
+        source,
+        policy=policy,
+        raw_root=raw_root,
+        existing_records=existing_records,
+        transport=transport,
+        sleep=sleep,
+        now=now,
+        validate_final_url=lambda value: _validate_seed_final_url(
+            value,
+            seed=seed,
+            policy=policy,
+        ),
+    )
+
+
+def download_discovered_pdf(
+    *,
+    document_id: str,
+    source_url: str,
+    storage_year: int,
+    policy: IngestionPolicy,
+    raw_root: Path,
+    existing_records: Iterable[dict[str, object]] = (),
+    transport: PDFDownloadTransport | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+) -> DownloadResult:
+    """Download one selected discovery URL without inventing report metadata."""
+    if re.fullmatch(r"[A-Z0-9_]{1,120}", document_id) is None:
+        raise DownloadError("document_id has an invalid format")
+    if (
+        isinstance(storage_year, bool)
+        or not isinstance(storage_year, int)
+        or not 2012 <= storage_year <= 2100
+    ):
+        raise DownloadError("storage_year is outside the allowed range")
+    try:
+        normalized_url, filename = validate_pdf_source_url(source_url, policy=policy)
+    except IngestionConfigError as exc:
+        raise DownloadError(f"source URL rejected: {exc}") from exc
+    source = _DownloadSource(
+        document_id=document_id,
+        source_url=normalized_url,
+        original_filename=filename,
+        storage_year=storage_year,
+    )
+    return _download_pdf(
+        source,
+        policy=policy,
+        raw_root=raw_root,
+        existing_records=existing_records,
+        transport=transport,
+        sleep=sleep,
+        now=now,
+        validate_final_url=lambda value: _validate_discovered_final_url(
+            value,
+            source=source,
+            policy=policy,
+        ),
+    )
+
+
+def _download_pdf(
+    source: _DownloadSource,
+    *,
+    policy: IngestionPolicy,
+    raw_root: Path,
+    existing_records: Iterable[dict[str, object]],
+    transport: PDFDownloadTransport | None,
+    sleep: Callable[[float], None],
+    now: Callable[[], datetime],
+    validate_final_url: Callable[[str], None],
+) -> DownloadResult:
     timestamp = now()
     if timestamp.tzinfo is None:
         raise DownloadError("download timestamp must be timezone-aware")
     timestamp = timestamp.astimezone(UTC)
     records = tuple(existing_records)
-    root, target = _target_path(raw_root, seed)
+    root, target = _target_path(raw_root, source)
 
-    prior = _find_prior_identity(seed, records)
+    prior = _find_prior_identity(source, records)
     if prior is not None:
         return _duplicate_from_registry(
-            seed,
+            source,
             prior,
             root=root,
-            policy=policy,
+            validate_final_url=validate_final_url,
         )
     if target.exists():
-        return _duplicate_from_existing_target(seed, target, now=timestamp)
+        return _duplicate_from_existing_target(source, target, now=timestamp)
 
     target.parent.mkdir(parents=True, exist_ok=True)
     part = target.with_suffix(f"{target.suffix}.part")
@@ -195,7 +285,7 @@ def download_seed_pdf(
                 sleep(max(policy.request_delay_seconds, backoff))
             try:
                 response = active_transport.download(
-                    seed.source_url,
+                    source.source_url,
                     part,
                     timeout_seconds=policy.timeout_seconds,
                     user_agent=INGESTION_USER_AGENT,
@@ -246,7 +336,7 @@ def download_seed_pdf(
         if signature != PDF_SIGNATURE:
             raise DownloadError("downloaded content has no PDF signature")
 
-        _validate_final_url(response.final_url, seed=seed, policy=policy)
+        validate_final_url(response.final_url)
         content_type = response.content_type.split(";", maxsplit=1)[0].strip().lower()
         if content_type and content_type != "application/pdf":
             warnings.append(f"unexpected Content-Type: {content_type}")
@@ -255,13 +345,13 @@ def download_seed_pdf(
         duplicate_path = _find_sha_duplicate(digest, records, root=root)
         if duplicate_path is not None:
             return DownloadResult(
-                document_id=seed.document_id,
-                source_url=seed.source_url,
+                document_id=source.document_id,
+                source_url=source.source_url,
                 final_url=response.final_url,
                 downloaded_at_utc=timestamp,
                 sha256=digest,
                 file_size=size,
-                original_filename=seed.original_filename,
+                original_filename=source.original_filename,
                 local_path=duplicate_path,
                 http_status=response.http_status,
                 content_type=response.content_type,
@@ -276,15 +366,15 @@ def download_seed_pdf(
                 raise DownloadError(
                     "target already exists with different content"
                 ) from exc
-            return _duplicate_from_existing_target(seed, target, now=timestamp)
+            return _duplicate_from_existing_target(source, target, now=timestamp)
         return DownloadResult(
-            document_id=seed.document_id,
-            source_url=seed.source_url,
+            document_id=source.document_id,
+            source_url=source.source_url,
             final_url=response.final_url,
             downloaded_at_utc=timestamp,
             sha256=digest,
             file_size=size,
-            original_filename=seed.original_filename,
+            original_filename=source.original_filename,
             local_path=target,
             http_status=response.http_status,
             content_type=response.content_type,
@@ -295,15 +385,20 @@ def download_seed_pdf(
         _remove_part(part)
 
 
-def _target_path(raw_root: Path, seed: SeedDocument) -> tuple[Path, Path]:
+def _target_path(
+    raw_root: Path,
+    source: _DownloadSource,
+) -> tuple[Path, Path]:
     root = Path(raw_root).resolve()
-    target = (root / str(seed.report_date.year) / f"{seed.document_id}.pdf").resolve()
+    target = (
+        root / str(source.storage_year) / f"{source.document_id}.pdf"
+    ).resolve()
     if root not in target.parents:
         raise DownloadError("download path escapes the configured raw root")
     return root, target
 
 
-def _validate_final_url(
+def _validate_seed_final_url(
     final_url: str,
     *,
     seed: SeedDocument,
@@ -317,13 +412,27 @@ def _validate_final_url(
         raise DownloadError("final URL identifies a different document")
 
 
+def _validate_discovered_final_url(
+    final_url: str,
+    *,
+    source: _DownloadSource,
+    policy: IngestionPolicy,
+) -> None:
+    try:
+        normalized_url, _ = validate_pdf_source_url(final_url, policy=policy)
+    except IngestionConfigError as exc:
+        raise DownloadError(f"final URL rejected: {exc}") from exc
+    if normalized_url != source.source_url:
+        raise DownloadError("final URL identifies a different document source")
+
+
 def _find_prior_identity(
-    seed: SeedDocument,
+    source: _DownloadSource,
     records: tuple[dict[str, object], ...],
 ) -> dict[str, object] | None:
     for record in records:
-        same_id = record.get("document_id") == seed.document_id
-        same_url = record.get("source_url") == seed.source_url
+        same_id = record.get("document_id") == source.document_id
+        same_url = record.get("source_url") == source.source_url
         if same_id != same_url:
             raise DownloadError("registry contains a conflicting URL or document_id")
         if same_id and same_url:
@@ -332,11 +441,11 @@ def _find_prior_identity(
 
 
 def _duplicate_from_registry(
-    seed: SeedDocument,
+    source: _DownloadSource,
     record: dict[str, object],
     *,
     root: Path,
-    policy: IngestionPolicy,
+    validate_final_url: Callable[[str], None],
 ) -> DownloadResult:
     path = _safe_registry_path(record.get("local_path"), root=root)
     digest = _file_sha256(path)
@@ -346,7 +455,7 @@ def _duplicate_from_registry(
     final_url = record.get("final_url")
     if not isinstance(final_url, str):
         raise DownloadError("registry final_url is invalid")
-    _validate_final_url(final_url, seed=seed, policy=policy)
+    validate_final_url(final_url)
     http_status = record.get("http_status")
     if isinstance(http_status, bool) or not isinstance(http_status, int):
         raise DownloadError("registry http_status is invalid")
@@ -356,13 +465,13 @@ def _duplicate_from_registry(
     if not isinstance(content_type, str) or len(content_type) > 200:
         raise DownloadError("registry content_type is invalid")
     return DownloadResult(
-        document_id=seed.document_id,
-        source_url=seed.source_url,
+        document_id=source.document_id,
+        source_url=source.source_url,
         final_url=final_url,
         downloaded_at_utc=downloaded_at,
         sha256=digest,
         file_size=path.stat().st_size,
-        original_filename=seed.original_filename,
+        original_filename=source.original_filename,
         local_path=path,
         http_status=http_status,
         content_type=content_type,
@@ -372,7 +481,7 @@ def _duplicate_from_registry(
 
 
 def _duplicate_from_existing_target(
-    seed: SeedDocument,
+    source: _DownloadSource,
     target: Path,
     *,
     now: datetime,
@@ -381,13 +490,13 @@ def _duplicate_from_existing_target(
         if existing_file.read(len(PDF_SIGNATURE)) != PDF_SIGNATURE:
             raise DownloadError("existing target has no PDF signature")
     return DownloadResult(
-        document_id=seed.document_id,
-        source_url=seed.source_url,
-        final_url=seed.source_url,
+        document_id=source.document_id,
+        source_url=source.source_url,
+        final_url=source.source_url,
         downloaded_at_utc=now,
         sha256=_file_sha256(target),
         file_size=target.stat().st_size,
-        original_filename=seed.original_filename,
+        original_filename=source.original_filename,
         local_path=target.resolve(),
         http_status=0,
         content_type="",

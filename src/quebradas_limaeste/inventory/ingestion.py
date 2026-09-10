@@ -9,6 +9,7 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
+from typing import Protocol
 
 from quebradas_limaeste.inventory.candidate_audit import (
     CANDIDATE_OUTPUT,
@@ -48,6 +49,18 @@ MAX_REGISTRY_DOCUMENTS = 10_000
 
 class IngestionError(RuntimeError):
     """Raised when local ingestion state is unsafe or inconsistent."""
+
+
+class ProcessableDocument(Protocol):
+    """Document contract consumed by the approved downstream pipeline."""
+
+    document_id: str
+    local_path: Path
+    storage_year: int
+    expected_site_terms: tuple[str, ...]
+    expected_region_terms: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, object]: ...
 
 
 def execute_ingest_seeds(
@@ -131,7 +144,7 @@ def execute_ingest_file(
         source_url=source_url,
         ingested_at=started,
     )
-    document, extraction_warnings, extraction_error = _process_document(
+    document, extraction_warnings, extraction_error = process_document(
         source,
         policy=policy,
         root=root,
@@ -213,7 +226,7 @@ def _execute(
             f"{seed.document_id}: {warning}" for warning in download.warnings
         )
         source = _prepare_downloaded_document(seed, download)
-        document, extraction_warnings, extraction_error = _process_document(
+        document, extraction_warnings, extraction_error = process_document(
             source,
             policy=policy,
             root=root,
@@ -326,8 +339,8 @@ def _prepare_local_document(
     )
 
 
-def _process_document(
-    source: IngestedDocument,
+def process_document(
+    source: ProcessableDocument,
     *,
     policy: IngestionPolicy,
     root: Path,
@@ -336,7 +349,7 @@ def _process_document(
     text_path = (
         root
         / INTERIM_ROOT
-        / str(source.report_date.year)
+        / str(source.storage_year)
         / f"{source.document_id}.txt"
     )
     try:
@@ -360,6 +373,12 @@ def _process_document(
         )
         return document, (), str(exc)
 
+    document.update(extraction.to_dict())
+    if extraction.ocr_required:
+        document["classification"] = None
+        document["event_candidates"] = []
+        return document, extraction.warnings, None
+
     classification = classify_document(
         extraction.full_text,
         expected_site_terms=source.expected_site_terms,
@@ -371,7 +390,6 @@ def _process_document(
         expected_site_terms=source.expected_site_terms,
         expected_region_terms=source.expected_region_terms,
     )
-    document.update(extraction.to_dict())
     document["classification"] = classification.to_dict()
     document["event_candidates"] = [candidate.to_dict() for candidate in candidates]
     return document, extraction.warnings, None
@@ -485,6 +503,17 @@ def _load_registry(path: Path) -> dict[str, list[dict[str, object]]]:
     return {"documents": documents}
 
 
+def load_document_registry(
+    *,
+    registry_path: Path = DOCUMENT_REGISTRY,
+    allowed_root: Path,
+) -> list[dict[str, object]]:
+    """Read the bounded shared registry for an approved ingestion workflow."""
+    root = allowed_root.resolve()
+    target = _output_path(registry_path, root=root)
+    return list(_load_registry(target)["documents"])
+
+
 def _upsert_registry_record(
     records: list[dict[str, object]],
     document: dict[str, object],
@@ -495,6 +524,31 @@ def _upsert_registry_record(
     if len(retained) > MAX_REGISTRY_DOCUMENTS:
         raise IngestionError("document registry exceeds its item limit")
     return retained
+
+
+def upsert_document_registry_record(
+    records: list[dict[str, object]],
+    document: dict[str, object],
+) -> list[dict[str, object]]:
+    """Return registry records with one validated document identity replaced."""
+    return _upsert_registry_record(records, document)
+
+
+def write_document_registry(
+    records: list[dict[str, object]],
+    *,
+    registry_path: Path = DOCUMENT_REGISTRY,
+    allowed_root: Path,
+) -> Path:
+    """Atomically publish bounded shared registry records inside the workspace."""
+    if len(records) > MAX_REGISTRY_DOCUMENTS or not all(
+        isinstance(item, dict) for item in records
+    ):
+        raise IngestionError("document registry has invalid documents")
+    root = allowed_root.resolve()
+    target = _output_path(registry_path, root=root)
+    _write_json(target, {"documents": records})
+    return target
 
 
 def _write_json(path: Path, payload: dict[str, object]) -> None:

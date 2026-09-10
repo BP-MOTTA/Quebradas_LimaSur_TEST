@@ -31,6 +31,147 @@ def test_cli_blocks_discovery_inside_github_actions(monkeypatch, capsys) -> None
     assert "disabled in GitHub Actions" in capsys.readouterr().err
 
 
+def test_cli_selects_batch_offline_inside_github_actions(monkeypatch, capsys) -> None:
+    calls = []
+
+    def fake_execute(
+        discovery_path,
+        *,
+        config_path,
+        output_path,
+        max_documents,
+        allowed_root,
+    ):
+        calls.append(
+            (
+                discovery_path,
+                config_path,
+                output_path,
+                max_documents,
+                allowed_root,
+            )
+        )
+        return {
+            "batch_id": "indeci-batch-0123456789abcdef",
+            "documents_available": 131,
+            "documents_selected": 23,
+            "selected_by_year": {"2017": 6, "2019": 4, "2023": 7, "2024": 6},
+            "selected_by_tier": {"A": 2, "B": 3, "C": 10, "D": 8},
+            "selection_output": "metadata/indeci/batch_selection.csv",
+        }
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(quebradas_cli, "execute_select_batch", fake_execute)
+
+    exit_code = quebradas_cli.main(
+        [
+            "indeci",
+            "select-batch",
+            "--discovery",
+            "metadata/indeci/discovery_candidates.csv",
+            "--max-documents",
+            "25",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls[0][3] == 25
+    output = capsys.readouterr().out
+    assert "documents_selected=23" in output
+    assert "year:2023=7" in output
+
+
+def test_cli_blocks_batch_ingestion_inside_github_actions(monkeypatch, capsys) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+
+    exit_code = quebradas_cli.main(
+        [
+            "indeci",
+            "ingest-batch",
+            "--selection",
+            "metadata/indeci/batch_selection.csv",
+        ]
+    )
+
+    assert exit_code == 2
+    assert "disabled in GitHub Actions" in capsys.readouterr().err
+
+
+def test_cli_runs_controlled_batch_ingestion(monkeypatch, capsys) -> None:
+    calls = []
+
+    def fake_execute(
+        selection_path,
+        *,
+        config_path,
+        allowed_root,
+        allow_large_batch,
+    ):
+        calls.append(
+            (selection_path, config_path, allowed_root, allow_large_batch)
+        )
+        return batch_payload()
+
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.setattr(quebradas_cli, "execute_ingest_batch", fake_execute)
+
+    exit_code = quebradas_cli.main(
+        [
+            "indeci",
+            "ingest-batch",
+            "--selection",
+            "metadata/indeci/batch_selection.csv",
+        ]
+    )
+
+    assert exit_code == 0
+    assert calls[0][3] is False
+    assert "documents_selected=4" in capsys.readouterr().out
+
+
+def test_cli_prints_batch_summary_offline_inside_github_actions(
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(
+        quebradas_cli,
+        "load_batch_manifest",
+        lambda path, *, allowed_root: batch_payload(),
+    )
+
+    exit_code = quebradas_cli.main(["indeci", "batch-summary"])
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "Documents\n---------\nselected: 4" in output
+    assert "Event candidates\n----------------\nstrong: 1" in output
+    assert "2019: 2" in output
+
+
+def batch_payload():
+    return {
+        "documents_selected": 4,
+        "documents_downloaded": 3,
+        "documents_failed": 0,
+        "duplicates": 1,
+        "ocr_required": 0,
+        "documents_relevant": 2,
+        "documents_possible": 1,
+        "documents_irrelevant": 1,
+        "documents_excluded_geography": 1,
+        "event_candidates": 2,
+        "strong_candidates": 1,
+        "moderate_candidates": 0,
+        "weak_candidates": 1,
+        "event_clusters": 2,
+        "items_pending_review": 5,
+        "documents_by_year": {"2017": 1, "2019": 2, "2023": 1, "2024": 0},
+        "warnings": [],
+        "errors": [],
+    }
+
+
 def test_cli_runs_explicit_discovery_dry_run(monkeypatch, capsys) -> None:
     calls = []
 

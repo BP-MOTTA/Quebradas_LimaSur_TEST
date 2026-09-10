@@ -281,8 +281,8 @@ def load_live_smoke_config(path: Path) -> LiveSmokeConfig:
         "max_pages_per_query",
         "queries",
     }
-    optional_keys = (set(), {"ingestion"}, {"discovery"}, {"ingestion", "discovery"})
-    if set(raw) not in tuple(expected_keys | keys for keys in optional_keys):
+    optional_keys = {"ingestion", "discovery", "batch"}
+    if not expected_keys <= set(raw) or not set(raw) <= expected_keys | optional_keys:
         raise LiveSmokeConfigError("config keys do not match the live-smoke schema")
     raw_queries = raw["queries"]
     if not isinstance(raw_queries, list):

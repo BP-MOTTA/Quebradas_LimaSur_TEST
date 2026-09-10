@@ -22,6 +22,8 @@ make indeci-live-smoke
 make indeci-live-smoke-emergency
 make indeci-ingest-seeds-live
 make indeci-discovery-dry-run
+make indeci-batch-select
+make indeci-batch-summary
 ```
 
 `make inventory` ejecuta un flujo offline sobre una fixture sintetica de prueba y
@@ -53,6 +55,13 @@ ejecuta ingestion. `make indeci-discovery-live` ejecuta el mismo dry-run de red
 de forma explicita y permanece fuera de CI. Las fuentes y sus limitaciones se
 describen en `docs/indeci_discovery_sources.md`.
 
+`make indeci-batch-select` es offline: ordena los candidatos descubiertos por
+evidencia preliminar en el titulo, aplica una cuota de hasta seis documentos
+por ano e incluye los controles RC630 e IE1496. El tier solo establece orden de
+revision; no determina relevancia cientifica y no excluye definitivamente
+ningun candidato. `make indeci-batch-live` descarga como maximo 25 seleccionados
+de forma secuencial, continua ante fallos documentales y permanece fuera de CI.
+
 Los PDFs se conservan sin sobrescritura bajo `data/raw/indeci/`; el texto
 regenerable se escribe bajo `data/interim/indeci/`. Ambos, el registro local y
 `metadata/indeci/ingestion_run.json` estan ignorados por Git. La distribucion o
@@ -80,6 +89,43 @@ python -m quebradas indeci discover \
 La ausencia de un documento en uno o ambos indices no demuestra que el
 documento no exista. El CSV conserva fuentes intentadas, fuentes coincidentes y
 estado de deduplicacion para revision posterior.
+
+La muestra reproducible se crea sin red con:
+
+```bash
+python -m quebradas indeci select-batch \
+  --discovery metadata/indeci/discovery_candidates.csv \
+  --max-documents 25
+```
+
+La seleccion completa se registra en
+`metadata/indeci/batch_selection.csv`. Solo las filas `selected=true` se
+procesan mediante el comando de red explicitamente aprobado:
+
+```bash
+python -m quebradas indeci ingest-batch \
+  --selection metadata/indeci/batch_selection.csv
+```
+
+El batch reutiliza descarga segura, SHA-256, extraccion, clasificacion,
+extraccion de candidatos, auditoria y consolidacion. Escribe
+`batch_documents.csv`, `batch_event_candidates.csv`,
+`batch_event_clusters.csv`, `review_queue.csv` y `batch_run.json` bajo
+`metadata/indeci/`; todas estas salidas y los PDFs permanecen ignorados por
+Git. Un PDF sin texto se marca `ocr_required=true`, pero este flujo no ejecuta
+OCR. `--allow-large-batch` existe como anulacion explicita y no forma parte de
+la ejecucion A1.14.
+
+El resumen local se consulta sin red con:
+
+```bash
+python -m quebradas indeci batch-summary
+```
+
+`relevance_status=relevant` no significa `event_confirmed=true`, y
+`candidate_strength=strong` no significa `ground_truth=1`. Documentos,
+candidatos y clusters siguen pendientes de revision humana; el batch no valida
+evidencia automaticamente.
 
 Para comprobar unicamente el informe de emergencia 1496:
 

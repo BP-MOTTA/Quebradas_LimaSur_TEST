@@ -171,6 +171,11 @@ class IngestedDocument:
     download_status: str | None = None
     warnings: tuple[str, ...] = ()
 
+    @property
+    def storage_year(self) -> int:
+        """Return the report year used by the shared interim layout."""
+        return self.report_date.year
+
     def to_dict(self) -> dict[str, object]:
         result: dict[str, object] = {
             "document_model": "indeci_pdf_v1",
@@ -217,7 +222,10 @@ def load_ingestion_policy(path: Path) -> IngestionPolicy:
         "queries",
         "ingestion",
     }
-    if set(raw) not in (required_root_keys, required_root_keys | {"discovery"}):
+    optional_root_keys = {"discovery", "batch"}
+    if not required_root_keys <= set(raw) or not set(raw) <= (
+        required_root_keys | optional_root_keys
+    ):
         raise IngestionConfigError("source config keys do not match ingestion schema")
     ingestion = raw["ingestion"]
     if not isinstance(ingestion, dict) or set(ingestion) != {
@@ -342,6 +350,15 @@ def derive_seed_document(url: str, *, policy: IngestionPolicy) -> SeedDocument:
         expected_region_terms=policy.expected_region_terms,
         policy=policy,
     )
+
+
+def validate_pdf_source_url(
+    value: object,
+    *,
+    policy: IngestionPolicy,
+) -> tuple[str, str]:
+    """Validate a discovered PDF URL without deriving report identity from it."""
+    return _validate_pdf_url(value, allowed_domains=policy.allowed_domains)
 
 
 def derive_document_identity(filename: str) -> tuple[str, str, str, date]:

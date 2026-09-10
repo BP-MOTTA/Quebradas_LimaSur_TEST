@@ -8,6 +8,13 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from quebradas_limaeste.inventory.batch_ingestion import (
+    BATCH_RUN_OUTPUT,
+    BatchIngestionError,
+    execute_ingest_batch,
+    format_batch_summary,
+    load_batch_manifest,
+)
 from quebradas_limaeste.inventory.candidate_audit import (
     AUDIT_OUTPUT,
     CANDIDATE_OUTPUT,
@@ -42,6 +49,12 @@ from quebradas_limaeste.inventory.live_smoke import (
     LiveSmokeConfigError,
     execute_live_smoke,
 )
+from quebradas_limaeste.inventory.triage import (
+    BATCH_SELECTION_OUTPUT,
+    SOURCE_CONFIG,
+    BatchPolicyError,
+    execute_select_batch,
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -51,7 +64,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     except SystemExit as exc:
         return int(exc.code)
 
-    network_commands = {"live-smoke", "discover", "ingest-url", "ingest-seeds"}
+    network_commands = {
+        "live-smoke",
+        "discover",
+        "ingest-url",
+        "ingest-seeds",
+        "ingest-batch",
+    }
     if (
         args.command in network_commands
         and os.environ.get("GITHUB_ACTIONS", "").lower() == "true"
@@ -66,6 +85,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_live_smoke(args)
     if args.command == "discover":
         return _run_discovery(args)
+    if args.command == "select-batch":
+        return _run_select_batch(args)
+    if args.command == "ingest-batch":
+        return _run_batch_ingestion(args)
+    if args.command == "batch-summary":
+        return _run_batch_summary(args)
     if args.command == "audit-candidates":
         return _run_candidate_audit(args)
     if args.command == "compare-golden-controls":
@@ -103,6 +128,63 @@ def _run_discovery(args: argparse.Namespace) -> int:
         return 2
 
     _print_discovery_summary(payload)
+    return 0
+
+
+def _run_select_batch(args: argparse.Namespace) -> int:
+    try:
+        payload = execute_select_batch(
+            Path(args.discovery),
+            config_path=Path(args.config),
+            output_path=Path(args.output),
+            max_documents=args.max_documents,
+            allowed_root=Path.cwd(),
+        )
+    except (BatchPolicyError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"batch_id={payload['batch_id']}")
+    print(f"documents_available={payload['documents_available']}")
+    print(f"documents_selected={payload['documents_selected']}")
+    for year, count in payload["selected_by_year"].items():
+        print(f"year:{year}={count}")
+    for tier, count in payload["selected_by_tier"].items():
+        print(f"tier:{tier}={count}")
+    print(f"output={payload['selection_output']}")
+    return 0
+
+
+def _run_batch_ingestion(args: argparse.Namespace) -> int:
+    try:
+        payload = execute_ingest_batch(
+            Path(args.selection),
+            config_path=Path(args.config),
+            allowed_root=Path.cwd(),
+            allow_large_batch=args.allow_large_batch,
+        )
+    except (
+        BatchIngestionError,
+        BatchPolicyError,
+        IngestionConfigError,
+        IngestionError,
+        OSError,
+    ) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    _print_batch_ingestion_summary(payload)
+    return 1 if payload["errors"] else 0
+
+
+def _run_batch_summary(args: argparse.Namespace) -> int:
+    try:
+        payload = load_batch_manifest(
+            Path(args.run),
+            allowed_root=Path.cwd(),
+        )
+        print(format_batch_summary(payload))
+    except (BatchIngestionError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     return 0
 
 
@@ -216,6 +298,59 @@ def _build_parser() -> argparse.ArgumentParser:
         "--run-output",
         default=str(DISCOVERY_RUN_OUTPUT),
         help="Discovery run manifest JSON.",
+    )
+    select_batch = indeci_commands.add_parser(
+        "select-batch",
+        help="Select a deterministic, year-balanced batch without network access.",
+    )
+    select_batch.add_argument(
+        "--discovery",
+        required=True,
+        help="Discovery candidate CSV.",
+    )
+    select_batch.add_argument(
+        "--max-documents",
+        type=int,
+        default=25,
+        help="Maximum selected documents, bounded by configuration.",
+    )
+    select_batch.add_argument(
+        "--config",
+        default=str(SOURCE_CONFIG),
+        help="Path to source YAML.",
+    )
+    select_batch.add_argument(
+        "--output",
+        default=str(BATCH_SELECTION_OUTPUT),
+        help="Batch selection CSV.",
+    )
+    ingest_batch = indeci_commands.add_parser(
+        "ingest-batch",
+        help="Download and process only selected rows from one bounded batch.",
+    )
+    ingest_batch.add_argument(
+        "--selection",
+        required=True,
+        help="Batch selection CSV.",
+    )
+    ingest_batch.add_argument(
+        "--config",
+        default=str(SOURCE_CONFIG),
+        help="Path to source YAML.",
+    )
+    ingest_batch.add_argument(
+        "--allow-large-batch",
+        action="store_true",
+        help="Explicitly allow the configured maximum to be exceeded.",
+    )
+    batch_summary = indeci_commands.add_parser(
+        "batch-summary",
+        help="Print a local controlled-batch summary without network access.",
+    )
+    batch_summary.add_argument(
+        "--run",
+        default=str(BATCH_RUN_OUTPUT),
+        help="Batch run manifest JSON.",
     )
     ingest_url = indeci_commands.add_parser(
         "ingest-url",
@@ -382,6 +517,33 @@ def _print_ingestion_summary(
         print(f"warning: {warning}", file=sys.stderr)
     for error in payload["errors"]:
         print(f"error: {error}", file=sys.stderr)
+
+
+def _print_batch_ingestion_summary(payload: dict[str, object]) -> None:
+    for field in (
+        "documents_selected",
+        "documents_downloaded",
+        "documents_failed",
+        "duplicates",
+        "ocr_required",
+        "documents_relevant",
+        "documents_possible",
+        "documents_irrelevant",
+        "documents_excluded_geography",
+        "event_candidates",
+        "strong_candidates",
+        "moderate_candidates",
+        "weak_candidates",
+        "event_clusters",
+        "items_pending_review",
+    ):
+        print(f"{field}={payload[field]}")
+    for year, count in payload["documents_by_year"].items():
+        print(f"year:{year}={count}")
+    for warning in payload["warnings"]:
+        print(f"warning: {_terminal_safe(warning)}", file=sys.stderr)
+    for error in payload["errors"]:
+        print(f"error: {_terminal_safe(error)}", file=sys.stderr)
 
 
 def _print_candidate_audit(payload: dict[str, object]) -> None:

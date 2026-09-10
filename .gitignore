@@ -30,3 +30,9 @@ metadata/indeci/events_cusipata_positive_consolidated.csv
 metadata/indeci/golden_controls.json
 metadata/indeci/discovery_candidates.csv
 metadata/indeci/discovery_run.json
+metadata/indeci/batch_selection.csv
+metadata/indeci/batch_documents.csv
+metadata/indeci/batch_event_candidates.csv
+metadata/indeci/batch_event_clusters.csv
+metadata/indeci/review_queue.csv
+metadata/indeci/batch_run.json

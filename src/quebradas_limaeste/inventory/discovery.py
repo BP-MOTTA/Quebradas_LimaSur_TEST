@@ -143,6 +143,7 @@ def load_discovery_config(path: Path, *, allowed_root: Path) -> DiscoveryConfig:
         "queries",
         "ingestion",
         "discovery",
+        "batch",
     }
     if set(raw) != expected_root:
         raise DiscoveryConfigError("config keys do not match the discovery schema")
