@@ -4,9 +4,7 @@ from quebradas import __main__ as quebradas_cli
 def test_cli_blocks_live_smoke_inside_github_actions(monkeypatch, capsys) -> None:
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
 
-    exit_code = quebradas_cli.main(
-        ["indeci", "live-smoke", "--config", "unused.yaml"]
-    )
+    exit_code = quebradas_cli.main(["indeci", "live-smoke", "--config", "unused.yaml"])
 
     assert exit_code == 2
     assert "disabled in GitHub Actions" in capsys.readouterr().err
@@ -168,6 +166,83 @@ def test_cli_builds_review_package_offline_in_github_actions(
     assert "hash_mismatches=0" in output
 
 
+def test_cli_filters_limaeste_offline_in_github_actions(
+    monkeypatch,
+    capsys,
+) -> None:
+    calls = []
+
+    def fake_execute(**kwargs):
+        calls.append(kwargs)
+        return {
+            "documents_total": 131,
+            "candidates_total": 53,
+            "priorities": {"P1": 3, "P2": 4, "P3": 2, "P4": 1, "PX": 121},
+            "spatial_relevance": {
+                "core": 4,
+                "near": 4,
+                "comparison": 2,
+                "low": 121,
+                "unknown": 0,
+            },
+            "event_relevance": {
+                "target": 9,
+                "possible_target": 80,
+                "excluded_topic": 34,
+                "unknown": 8,
+            },
+            "rainfall_related": {"true": 5, "false": 1, "unknown": 125},
+            "missing_local_pdf": 0,
+            "outputs": {},
+        }
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(quebradas_cli, "execute_limaeste_filter", fake_execute)
+
+    exit_code = quebradas_cli.main(["indeci", "filter-limaeste"])
+
+    assert exit_code == 0
+    assert calls[0]["allowed_root"] == quebradas_cli.Path.cwd()
+    output = capsys.readouterr().out
+    assert "documents_total=131" in output
+    assert "priority:P1=3" in output
+    assert "spatial:near=4" in output
+    assert "missing_local_pdf=0" in output
+
+
+def test_cli_builds_limaeste_package_offline_in_github_actions(
+    monkeypatch,
+    capsys,
+) -> None:
+    calls = []
+
+    def fake_build(**kwargs):
+        calls.append(kwargs)
+        return {
+            "copied_pdfs": 130,
+            "excel_rows": 131,
+            "filename_collisions": 2,
+            "hash_mismatches": 0,
+            "missing_local_pdf": 1,
+        }
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(
+        quebradas_cli,
+        "build_limaeste_review_package",
+        fake_build,
+    )
+
+    exit_code = quebradas_cli.main(["indeci", "build-limaeste-review-package"])
+
+    assert exit_code == 0
+    assert calls[0]["allowed_root"] == quebradas_cli.Path.cwd()
+    output = capsys.readouterr().out
+    assert "copied_pdfs=130" in output
+    assert "excel_rows=131" in output
+    assert "hash_mismatches=0" in output
+
+
 def test_cli_runs_controlled_batch_ingestion(monkeypatch, capsys) -> None:
     calls = []
 
@@ -178,9 +253,7 @@ def test_cli_runs_controlled_batch_ingestion(monkeypatch, capsys) -> None:
         allowed_root,
         allow_large_batch,
     ):
-        calls.append(
-            (selection_path, config_path, allowed_root, allow_large_batch)
-        )
+        calls.append((selection_path, config_path, allowed_root, allow_large_batch))
         return batch_payload()
 
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
@@ -696,10 +769,6 @@ def test_cli_compares_golden_controls_offline(monkeypatch, capsys) -> None:
     assert calls
     output = capsys.readouterr().out
     assert (
-        "negative_control=INDECI_IE1496_20230505,"
-        "strong=0,moderate=0,weak=16" in output
+        "negative_control=INDECI_IE1496_20230505,strong=0,moderate=0,weak=16" in output
     )
-    assert (
-        "positive_control=INDECI_RC630_20190303,"
-        "strong=1,moderate=0,weak=0" in output
-    )
+    assert "positive_control=INDECI_RC630_20190303,strong=1,moderate=0,weak=0" in output

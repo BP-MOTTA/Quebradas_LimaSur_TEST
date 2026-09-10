@@ -99,3 +99,13 @@ and uses an exclusive temporary file plus `fsync` and atomic replacement.
 
 The packet is generated only from bounded CSV fields. It never reads a retained
 PDF or the full extracted document text.
+
+## A1.16 reduced coauthor package
+
+The separate A1.16 filter may read already extracted local text to derive
+review priority, but it does not make human decisions. Its reduced package
+contains all filtered rows, including `PX`, while physically copying only PDFs
+already present under `data/raw/indeci/`. The package index has blank human
+columns and no `training_label`; `PX` is an operational queue status rather
+than scientific exclusion. The complete evidence and priority contract is in
+`docs/indeci_limaeste_filter.md`.

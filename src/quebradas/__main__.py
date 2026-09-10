@@ -61,6 +61,20 @@ from quebradas_limaeste.inventory.ingestion import (
     execute_ingest_url,
 )
 from quebradas_limaeste.inventory.ingestion_models import IngestionConfigError
+from quebradas_limaeste.inventory.limaeste_filter import (
+    FILTER_CANDIDATES_OUTPUT,
+    FILTER_CONFIG,
+    FILTER_DOCUMENTS_OUTPUT,
+    GEOGRAPHIC_SUMMARY_OUTPUT,
+    GEOGRAPHIC_SUMMARY_TEXT_OUTPUT,
+    LimaEsteFilterError,
+    execute_limaeste_filter,
+)
+from quebradas_limaeste.inventory.limaeste_review_package import (
+    LIMAESTE_REVIEW_PACKAGE_OUTPUT,
+    LimaEsteReviewPackageError,
+    build_limaeste_review_package,
+)
 from quebradas_limaeste.inventory.live_smoke import (
     OUTPUT_FILENAME,
     LiveSmokeConfigError,
@@ -116,6 +130,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_full_ingestion(args)
     if args.command == "build-review-package":
         return _run_build_review_package(args)
+    if args.command == "filter-limaeste":
+        return _run_limaeste_filter(args)
+    if args.command == "build-limaeste-review-package":
+        return _run_build_limaeste_review_package(args)
     if args.command == "batch-summary":
         return _run_batch_summary(args)
     if args.command == "review-batch":
@@ -246,6 +264,57 @@ def _run_build_review_package(args: argparse.Namespace) -> int:
         "filename_collisions",
         "hash_mismatches",
         "golden_controls_present",
+    ):
+        print(f"{field}={payload[field]}")
+    return 0
+
+
+def _run_limaeste_filter(args: argparse.Namespace) -> int:
+    try:
+        payload = execute_limaeste_filter(
+            documents_path=Path(args.documents),
+            candidates_path=Path(args.candidates),
+            clusters_path=Path(args.clusters),
+            config_path=Path(args.config),
+            documents_output=Path(args.documents_output),
+            candidates_output=Path(args.candidates_output),
+            summary_output=Path(args.summary_output),
+            summary_text_output=Path(args.summary_text_output),
+            allowed_root=Path.cwd(),
+        )
+    except (LimaEsteFilterError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"documents_total={payload['documents_total']}")
+    print(f"candidates_total={payload['candidates_total']}")
+    for label, count in payload["priorities"].items():
+        print(f"priority:{label}={count}")
+    for label, count in payload["spatial_relevance"].items():
+        print(f"spatial:{label}={count}")
+    for label, count in payload["event_relevance"].items():
+        print(f"event:{label}={count}")
+    for label, count in payload["rainfall_related"].items():
+        print(f"rainfall:{label}={count}")
+    print(f"missing_local_pdf={payload['missing_local_pdf']}")
+    return 0
+
+
+def _run_build_limaeste_review_package(args: argparse.Namespace) -> int:
+    try:
+        payload = build_limaeste_review_package(
+            documents_path=Path(args.documents),
+            output_dir=Path(args.output_dir),
+            allowed_root=Path.cwd(),
+        )
+    except (LimaEsteReviewPackageError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    for field in (
+        "copied_pdfs",
+        "excel_rows",
+        "filename_collisions",
+        "hash_mismatches",
+        "missing_local_pdf",
     ):
         print(f"{field}={payload[field]}")
     return 0
@@ -494,6 +563,64 @@ def _build_parser() -> argparse.ArgumentParser:
         "--output-dir",
         default=str(REVIEW_PACKAGE_OUTPUT),
         help="New review package directory; existing content is never overwritten.",
+    )
+    limaeste_filter = indeci_commands.add_parser(
+        "filter-limaeste",
+        help="Filter existing local records for Cusipata and Lima Este.",
+    )
+    limaeste_filter.add_argument(
+        "--documents",
+        default=str(ALL_DOCUMENTS_OUTPUT),
+        help="Full document inventory CSV.",
+    )
+    limaeste_filter.add_argument(
+        "--candidates",
+        default=str(ALL_EVENT_CANDIDATES_OUTPUT),
+        help="Full audited event candidate CSV.",
+    )
+    limaeste_filter.add_argument(
+        "--clusters",
+        default=str(ALL_EVENT_CLUSTERS_OUTPUT),
+        help="Full consolidated event cluster CSV.",
+    )
+    limaeste_filter.add_argument(
+        "--config",
+        default=str(FILTER_CONFIG),
+        help="Geographic and event relevance policy.",
+    )
+    limaeste_filter.add_argument(
+        "--documents-output",
+        default=str(FILTER_DOCUMENTS_OUTPUT),
+        help="Filtered document CSV.",
+    )
+    limaeste_filter.add_argument(
+        "--candidates-output",
+        default=str(FILTER_CANDIDATES_OUTPUT),
+        help="Filtered candidate CSV.",
+    )
+    limaeste_filter.add_argument(
+        "--summary-output",
+        default=str(GEOGRAPHIC_SUMMARY_OUTPUT),
+        help="Geographic summary CSV.",
+    )
+    limaeste_filter.add_argument(
+        "--summary-text-output",
+        default=str(GEOGRAPHIC_SUMMARY_TEXT_OUTPUT),
+        help="Geographic summary text file.",
+    )
+    limaeste_package = indeci_commands.add_parser(
+        "build-limaeste-review-package",
+        help="Build the reduced local coauthor package without network access.",
+    )
+    limaeste_package.add_argument(
+        "--documents",
+        default=str(FILTER_DOCUMENTS_OUTPUT),
+        help="Filtered document CSV.",
+    )
+    limaeste_package.add_argument(
+        "--output-dir",
+        default=str(LIMAESTE_REVIEW_PACKAGE_OUTPUT),
+        help="New package directory; existing content is never overwritten.",
     )
     batch_summary = indeci_commands.add_parser(
         "batch-summary",

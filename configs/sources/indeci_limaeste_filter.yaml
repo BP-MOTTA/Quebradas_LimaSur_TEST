@@ -1,0 +1,70 @@
+{
+  "spatial_terms": {
+    "core": [
+      {"location": "CUSIPATA", "aliases": ["Cusipata"]},
+      {"location": "SAN-BARTOLOME", "aliases": ["San Bartolomé"]},
+      {"location": "CHACLACAYO", "aliases": ["Chaclacayo"]}
+    ],
+    "near": [
+      {"location": "LURIGANCHO-CHOSICA", "aliases": ["Lurigancho-Chosica", "Lurigancho Chosica"]},
+      {"location": "LURIGANCHO", "aliases": ["Lurigancho"]},
+      {"location": "CHOSICA", "aliases": ["Chosica"]},
+      {"location": "QUIRIO", "aliases": ["Quirio"]},
+      {"location": "PEDREGAL", "aliases": ["Pedregal"]},
+      {"location": "LA-CANTUTA", "aliases": ["La Cantuta"]},
+      {"location": "CHACRASANA", "aliases": ["Chacrasana"]},
+      {"location": "RAYOS-DEL-SOL", "aliases": ["Rayos del Sol"]},
+      {"location": "HUASCARAN", "aliases": ["Huascarán"]},
+      {"location": "LOS-CONDORES", "aliases": ["Los Cóndores"]},
+      {"location": "LA-FLORESTA", "aliases": ["La Floresta"]},
+      {"location": "HUAYCOLORO", "aliases": ["Huaycoloro"]},
+      {"location": "RIO-SECO", "aliases": ["Río Seco"]},
+      {"location": "CAROSSIO", "aliases": ["Carossio", "Carosio"]},
+      {"location": "CORRALES", "aliases": ["Corrales"]},
+      {"location": "MARISCAL-CASTILLA", "aliases": ["Mariscal Castilla"]},
+      {"location": "SAN-FERNANDO", "aliases": ["San Fernando"]}
+    ],
+    "comparison": [
+      {"location": "SAN-JUAN-DE-LURIGANCHO", "aliases": ["San Juan de Lurigancho"]},
+      {"location": "JICAMARCA", "aliases": ["Jicamarca"]},
+      {"location": "CIENEGUILLA", "aliases": ["Cieneguilla"]}
+    ],
+    "low": [
+      {"location": "LIMA", "aliases": ["Lima"]}
+    ]
+  },
+  "target_event_terms": [
+    {"event": "HUAICO", "aliases": ["huaico", "huayco"]},
+    {"event": "ACTIVACION-DE-QUEBRADA", "aliases": ["activación de quebrada", "activación de quebradas", "activacion_quebrada", "se activó la quebrada", "se activaron las quebradas"]},
+    {"event": "FLUJO-DE-DETRITOS", "aliases": ["flujo de detritos", "flujo_detritos"]},
+    {"event": "FLUJO-DE-LODO", "aliases": ["flujo de lodo"]},
+    {"event": "DESLIZAMIENTO", "aliases": ["deslizamiento de lodo y rocas", "deslizamiento de lodo", "deslizamiento"]},
+    {"event": "MOVIMIENTO-EN-MASA", "aliases": ["movimiento en masa"]},
+    {"event": "DESBORDE", "aliases": ["desborde de quebrada", "desborde de río", "desborde de rio", "desborde_rio", "desborde"]},
+    {"event": "INUNDACION", "aliases": ["inundación", "inundacion"]},
+    {"event": "LLUVIAS-INTENSAS", "aliases": ["lluvias intensas", "lluvia intensa", "precipitación intensa", "precipitacion intensa", "lluvias_intensas"]},
+    {"event": "PRECIPITACIONES", "aliases": ["precipitaciones"]},
+    {"event": "GRANIZO", "aliases": ["granizo"]}
+  ],
+  "excluded_topic_terms": [
+    {"event": "INCENDIO-FORESTAL", "aliases": ["incendio forestal"]},
+    {"event": "INCENDIO-URBANO", "aliases": ["incendio urbano"]},
+    {"event": "TERREMOTO", "aliases": ["terremoto"]},
+    {"event": "SISMO", "aliases": ["sismo"]},
+    {"event": "ACCIDENTE-VEHICULAR", "aliases": ["accidente vehicular", "accidente de tránsito", "accidente de transito"]},
+    {"event": "ACCIDENTE-AEREO", "aliases": ["accidente aéreo", "accidente aereo"]},
+    {"event": "ACCIDENTE-INDUSTRIAL", "aliases": ["accidente industrial"]},
+    {"event": "EXPLOSION", "aliases": ["explosión", "explosion"]},
+    {"event": "DERRAME", "aliases": ["derrame"]},
+    {"event": "CONFLICTO-SOCIAL", "aliases": ["conflicto social"]},
+    {"event": "EMERGENCIA-SANITARIA", "aliases": ["emergencia sanitaria"]},
+    {"event": "EMERGENCIA-MEDICA", "aliases": ["emergencia médica", "emergencia medica"]},
+    {"event": "COLAPSO-ESTRUCTURAL", "aliases": ["colapso estructural"]}
+  ],
+  "rainfall_terms": ["lluvias intensas", "lluvia intensa", "precipitación intensa", "precipitaciones", "granizo"],
+  "response_terms": ["huaico", "huayco", "activación de quebrada", "activación de quebradas", "se activó la quebrada", "se activaron las quebradas", "flujo de detritos", "flujo de lodo", "deslizamiento", "movimiento en masa", "inundación", "desborde"],
+  "causal_markers": ["a consecuencia de", "debido a", "producto de", "a causa de", "ocasionó", "ocasionaron", "provocó", "provocaron", "causó", "causaron", "generó", "generaron", "se produjo", "se produjeron"],
+  "negative_relation_phrases": ["no estuvo relacionado con las lluvias", "no estuvo relacionada con las lluvias", "sin relación con las lluvias", "no fue ocasionado por las lluvias", "no fue ocasionada por las lluvias"],
+  "context_window_characters": 280,
+  "max_text_bytes": 5000000
+}

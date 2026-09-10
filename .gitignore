@@ -43,4 +43,8 @@ metadata/indeci/all_event_candidates.csv
 metadata/indeci/all_event_clusters.csv
 metadata/indeci/duplicate_review.csv
 metadata/indeci/full_ingestion_run.json
+metadata/indeci/geographic_event_filter_documents.csv
+metadata/indeci/geographic_event_filter_candidates.csv
+metadata/indeci/geographic_summary.csv
+metadata/indeci/geographic_summary.txt
 review_packages/

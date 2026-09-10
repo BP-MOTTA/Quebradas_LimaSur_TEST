@@ -28,6 +28,8 @@ make indeci-review-batch
 make indeci-review-summary
 make indeci-full-ingest
 make indeci-build-review-package
+make indeci-filter-limaeste
+make indeci-build-limaeste-review-package
 ```
 
 `make inventory` ejecuta un flujo offline sobre una fixture sintetica de prueba y
@@ -187,6 +189,23 @@ avance humano. P1-P4 solo ordena revisión: no valida eventos, no excluye
 documentos y no crea `training_label`. La fecha de evento solo procede de
 evidencia extraída; nunca se sustituye por la fecha del reporte. El contrato
 completo se documenta en `docs/indeci_full_ingestion.md`.
+
+El filtro geográfico y temático A1.16 funciona exclusivamente sobre esos
+archivos y textos locales:
+
+```bash
+python -m quebradas indeci filter-limaeste
+python -m quebradas indeci build-limaeste-review-package
+```
+
+El primer comando conserva las 131 filas y añade variables derivadas separadas
+para cercanía espacial, pertinencia del evento, relación explícita con lluvia y
+prioridad P1-PX. Escribe dos CSV filtrados y los resúmenes geográficos bajo
+`metadata/indeci/`. El segundo copia únicamente PDFs ya disponibles a
+`review_packages/cusipata_limaeste_filtered/` y crea índices CSV/XLSX con las
+decisiones humanas vacías. Ninguno descarga, ejecuta OCR, modifica raw ni crea
+ground truth. `PX` significa fuera de revisión prioritaria, no evento falso. El
+contrato se detalla en `docs/indeci_limaeste_filter.md`.
 
 Las opciones de ruta de ambos comandos permiten revisar un batch aislado dentro
 del workspace. El contrato de campos y las salvaguardas se detallan en
