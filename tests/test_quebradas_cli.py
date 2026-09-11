@@ -243,6 +243,40 @@ def test_cli_builds_limaeste_package_offline_in_github_actions(
     assert "hash_mismatches=0" in output
 
 
+def test_cli_audits_spatial_false_negatives_offline_in_github_actions(
+    monkeypatch,
+    capsys,
+) -> None:
+    calls = []
+
+    def fake_audit(**kwargs):
+        calls.append(kwargs)
+        return {
+            "documents_total": 131,
+            "locations_searched": 23,
+            "audit_rows": 3013,
+            "false_negatives": 0,
+            "audit_output": "metadata/indeci/spatial_false_negative_audit.csv",
+            "summary_output": "metadata/indeci/spatial_audit_summary.json",
+        }
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(
+        quebradas_cli,
+        "execute_spatial_false_negative_audit",
+        fake_audit,
+    )
+
+    exit_code = quebradas_cli.main(["indeci", "audit-spatial-false-negatives"])
+
+    assert exit_code == 0
+    assert calls[0]["allowed_root"] == quebradas_cli.Path.cwd()
+    output = capsys.readouterr().out
+    assert "documents_total=131" in output
+    assert "audit_rows=3013" in output
+    assert "false_negatives=0" in output
+
+
 def test_cli_runs_controlled_batch_ingestion(monkeypatch, capsys) -> None:
     calls = []
 

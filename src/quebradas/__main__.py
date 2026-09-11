@@ -85,6 +85,12 @@ from quebradas_limaeste.inventory.review_package import (
     ReviewPackageError,
     build_review_package,
 )
+from quebradas_limaeste.inventory.spatial_audit import (
+    SPATIAL_AUDIT_OUTPUT,
+    SPATIAL_AUDIT_SUMMARY_OUTPUT,
+    SpatialAuditError,
+    execute_spatial_false_negative_audit,
+)
 from quebradas_limaeste.inventory.triage import (
     BATCH_SELECTION_OUTPUT,
     SOURCE_CONFIG,
@@ -134,6 +140,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_limaeste_filter(args)
     if args.command == "build-limaeste-review-package":
         return _run_build_limaeste_review_package(args)
+    if args.command == "audit-spatial-false-negatives":
+        return _run_spatial_false_negative_audit(args)
     if args.command == "batch-summary":
         return _run_batch_summary(args)
     if args.command == "review-batch":
@@ -315,6 +323,32 @@ def _run_build_limaeste_review_package(args: argparse.Namespace) -> int:
         "filename_collisions",
         "hash_mismatches",
         "missing_local_pdf",
+    ):
+        print(f"{field}={payload[field]}")
+    return 0
+
+
+def _run_spatial_false_negative_audit(args: argparse.Namespace) -> int:
+    try:
+        payload = execute_spatial_false_negative_audit(
+            documents_path=Path(args.documents),
+            candidates_path=Path(args.candidates),
+            filtered_documents_path=Path(args.filtered_documents),
+            config_path=Path(args.config),
+            audit_output=Path(args.audit_output),
+            summary_output=Path(args.summary_output),
+            allowed_root=Path.cwd(),
+        )
+    except (SpatialAuditError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    for field in (
+        "documents_total",
+        "locations_searched",
+        "audit_rows",
+        "false_negatives",
+        "audit_output",
+        "summary_output",
     ):
         print(f"{field}={payload[field]}")
     return 0
@@ -621,6 +655,40 @@ def _build_parser() -> argparse.ArgumentParser:
         "--output-dir",
         default=str(LIMAESTE_REVIEW_PACKAGE_OUTPUT),
         help="New package directory; existing content is never overwritten.",
+    )
+    spatial_audit = indeci_commands.add_parser(
+        "audit-spatial-false-negatives",
+        help="Audit existing local spatial detections without changing them.",
+    )
+    spatial_audit.add_argument(
+        "--documents",
+        default=str(ALL_DOCUMENTS_OUTPUT),
+        help="Full document inventory CSV.",
+    )
+    spatial_audit.add_argument(
+        "--candidates",
+        default=str(ALL_EVENT_CANDIDATES_OUTPUT),
+        help="Full audited event candidate CSV.",
+    )
+    spatial_audit.add_argument(
+        "--filtered-documents",
+        default=str(FILTER_DOCUMENTS_OUTPUT),
+        help="A1.16 filtered document CSV.",
+    )
+    spatial_audit.add_argument(
+        "--config",
+        default=str(FILTER_CONFIG),
+        help="A1.16 spatial policy.",
+    )
+    spatial_audit.add_argument(
+        "--audit-output",
+        default=str(SPATIAL_AUDIT_OUTPUT),
+        help="Per-document and per-location audit CSV.",
+    )
+    spatial_audit.add_argument(
+        "--summary-output",
+        default=str(SPATIAL_AUDIT_SUMMARY_OUTPUT),
+        help="Spatial audit summary JSON.",
     )
     batch_summary = indeci_commands.add_parser(
         "batch-summary",

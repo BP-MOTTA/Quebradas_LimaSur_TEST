@@ -47,4 +47,6 @@ metadata/indeci/geographic_event_filter_documents.csv
 metadata/indeci/geographic_event_filter_candidates.csv
 metadata/indeci/geographic_summary.csv
 metadata/indeci/geographic_summary.txt
+metadata/indeci/spatial_false_negative_audit.csv
+metadata/indeci/spatial_audit_summary.json
 review_packages/

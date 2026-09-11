@@ -8,6 +8,7 @@ VENV_PYTHON := $(VENV)/bin/python
 .PHONY: indeci-review-batch indeci-review-summary
 .PHONY: indeci-full-ingest indeci-build-review-package
 .PHONY: indeci-filter-limaeste indeci-build-limaeste-review-package
+.PHONY: indeci-audit-spatial-false-negatives
 .PHONY: gis features dataset train evaluate report
 
 setup:
@@ -91,6 +92,9 @@ indeci-filter-limaeste:
 
 indeci-build-limaeste-review-package:
 	$(VENV_PYTHON) -m quebradas indeci build-limaeste-review-package
+
+indeci-audit-spatial-false-negatives:
+	$(VENV_PYTHON) -m quebradas indeci audit-spatial-false-negatives
 
 gis:
 	@echo "GIS pipeline is not implemented in this phase."
