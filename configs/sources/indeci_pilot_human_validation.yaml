@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "reviewed_by": "pilot_investigator",
+  "decision_basis": "researcher-approved A1.18 priority freeze: P1/P2 include; PX exclude",
+  "approved_priority_decisions": {
+    "P1": "include",
+    "P2": "include",
+    "PX": "exclude"
+  }
+}

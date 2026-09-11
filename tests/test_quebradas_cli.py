@@ -277,6 +277,81 @@ def test_cli_audits_spatial_false_negatives_offline_in_github_actions(
     assert "false_negatives=0" in output
 
 
+def test_cli_freezes_pilot_validation_offline_in_github_actions(
+    monkeypatch,
+    capsys,
+) -> None:
+    calls = []
+
+    def fake_freeze(**kwargs):
+        calls.append(kwargs)
+        return {
+            "documents_total": 131,
+            "documents_included": 6,
+            "documents_excluded": 125,
+            "included_by_priority": {"P1": 4, "P2": 2},
+            "excluded_by_reason": {
+                "outside_study_area": 92,
+                "excluded_event_type": 8,
+                "outside_area_and_event_type": 25,
+                "out_of_scope": 0,
+            },
+            "events_in_retained_documents": 20,
+            "event_clusters_in_retained_documents": 20,
+            "strong_candidates": 1,
+            "moderate_candidates": 0,
+            "weak_candidates": 19,
+            "human_validation_completed": True,
+        }
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(
+        quebradas_cli,
+        "execute_pilot_validation_freeze",
+        fake_freeze,
+    )
+
+    exit_code = quebradas_cli.main(["indeci", "freeze-pilot-validation"])
+
+    assert exit_code == 0
+    assert calls[0]["allowed_root"] == quebradas_cli.Path.cwd()
+    output = capsys.readouterr().out
+    assert "documents_included=6" in output
+    assert "included:P1=4" in output
+    assert "excluded:outside_study_area=92" in output
+    assert "human_validation_completed=true" in output
+
+
+def test_cli_builds_final_pilot_package_offline_in_github_actions(
+    monkeypatch,
+    capsys,
+) -> None:
+    calls = []
+
+    def fake_build(**kwargs):
+        calls.append(kwargs)
+        return {
+            "pdfs_p1": 4,
+            "pdfs_p2": 2,
+            "excel_rows": 6,
+            "sha_mismatches": 0,
+            "missing_local_pdf": 0,
+        }
+
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    monkeypatch.setattr(quebradas_cli, "build_final_pilot_package", fake_build)
+
+    exit_code = quebradas_cli.main(["indeci", "build-final-pilot-package"])
+
+    assert exit_code == 0
+    assert calls[0]["allowed_root"] == quebradas_cli.Path.cwd()
+    output = capsys.readouterr().out
+    assert "pdfs_p1=4" in output
+    assert "pdfs_p2=2" in output
+    assert "excel_rows=6" in output
+    assert "sha_mismatches=0" in output
+
+
 def test_cli_runs_controlled_batch_ingestion(monkeypatch, capsys) -> None:
     calls = []
 

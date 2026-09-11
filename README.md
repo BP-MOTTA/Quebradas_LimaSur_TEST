@@ -31,6 +31,8 @@ make indeci-build-review-package
 make indeci-filter-limaeste
 make indeci-build-limaeste-review-package
 make indeci-audit-spatial-false-negatives
+make indeci-freeze-pilot-validation
+make indeci-build-final-pilot-package
 ```
 
 `make inventory` ejecuta un flujo offline sobre una fixture sintetica de prueba y
@@ -219,6 +221,20 @@ Genera una matriz documento-ubicación y un resumen JSON bajo
 `metadata/indeci/`. Distingue una ubicación ausente del corpus, una ubicación
 detectada pero no primaria y un falso negativo real. El procedimiento y los
 resultados observados se documentan en `docs/indeci_spatial_audit.md`.
+
+La validación humana aprobada para el piloto se congela localmente con:
+
+```bash
+python -m quebradas indeci freeze-pilot-validation
+python -m quebradas indeci build-final-pilot-package
+```
+
+El primer comando aplica exclusivamente la decisión versionada P1/P2 include y
+PX exclude, sin recalcular ni sobrescribir campos automáticos. El segundo crea
+`review_packages/cusipata_limaeste_final/` con solo los documentos retenidos y
+copias PDF verificadas por SHA-256. Ambos se niegan a sobrescribir decisiones o
+paquetes existentes. El contrato se documenta en
+`docs/indeci_pilot_validation.md`.
 
 Las opciones de ruta de ambos comandos permiten revisar un batch aislado dentro
 del workspace. El contrato de campos y las salvaguardas se detallan en

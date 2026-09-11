@@ -80,6 +80,17 @@ from quebradas_limaeste.inventory.live_smoke import (
     LiveSmokeConfigError,
     execute_live_smoke,
 )
+from quebradas_limaeste.inventory.pilot_validation import (
+    FINAL_PILOT_PACKAGE_OUTPUT,
+    PILOT_EXCLUDED_DOCUMENTS_OUTPUT,
+    PILOT_HUMAN_DECISIONS_OUTPUT,
+    PILOT_RETAINED_DOCUMENTS_OUTPUT,
+    PILOT_VALIDATION_CONFIG,
+    PILOT_VALIDATION_SUMMARY_OUTPUT,
+    PilotValidationError,
+    build_final_pilot_package,
+    execute_pilot_validation_freeze,
+)
 from quebradas_limaeste.inventory.review_package import (
     REVIEW_PACKAGE_OUTPUT,
     ReviewPackageError,
@@ -142,6 +153,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_build_limaeste_review_package(args)
     if args.command == "audit-spatial-false-negatives":
         return _run_spatial_false_negative_audit(args)
+    if args.command == "freeze-pilot-validation":
+        return _run_freeze_pilot_validation(args)
+    if args.command == "build-final-pilot-package":
+        return _run_build_final_pilot_package(args)
     if args.command == "batch-summary":
         return _run_batch_summary(args)
     if args.command == "review-batch":
@@ -349,6 +364,65 @@ def _run_spatial_false_negative_audit(args: argparse.Namespace) -> int:
         "false_negatives",
         "audit_output",
         "summary_output",
+    ):
+        print(f"{field}={payload[field]}")
+    return 0
+
+
+def _run_freeze_pilot_validation(args: argparse.Namespace) -> int:
+    try:
+        payload = execute_pilot_validation_freeze(
+            documents_path=Path(args.documents),
+            filtered_documents_path=Path(args.filtered_documents),
+            filtered_candidates_path=Path(args.filtered_candidates),
+            config_path=Path(args.config),
+            decisions_output=Path(args.decisions_output),
+            retained_output=Path(args.retained_output),
+            excluded_output=Path(args.excluded_output),
+            summary_output=Path(args.summary_output),
+            allowed_root=Path.cwd(),
+        )
+    except (PilotValidationError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    for field in ("documents_total", "documents_included", "documents_excluded"):
+        print(f"{field}={payload[field]}")
+    for priority, count in payload["included_by_priority"].items():
+        print(f"included:{priority}={count}")
+    for reason, count in payload["excluded_by_reason"].items():
+        print(f"excluded:{reason}={count}")
+    for field in (
+        "events_in_retained_documents",
+        "strong_candidates",
+        "moderate_candidates",
+        "weak_candidates",
+    ):
+        print(f"{field}={payload[field]}")
+    print(
+        "human_validation_completed="
+        f"{str(payload['human_validation_completed']).lower()}"
+    )
+    return 0
+
+
+def _run_build_final_pilot_package(args: argparse.Namespace) -> int:
+    try:
+        payload = build_final_pilot_package(
+            filtered_documents_path=Path(args.filtered_documents),
+            decisions_path=Path(args.decisions),
+            retained_documents_path=Path(args.retained_documents),
+            output_dir=Path(args.output_dir),
+            allowed_root=Path.cwd(),
+        )
+    except (PilotValidationError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    for field in (
+        "pdfs_p1",
+        "pdfs_p2",
+        "excel_rows",
+        "sha_mismatches",
+        "missing_local_pdf",
     ):
         print(f"{field}={payload[field]}")
     return 0
@@ -689,6 +763,74 @@ def _build_parser() -> argparse.ArgumentParser:
         "--summary-output",
         default=str(SPATIAL_AUDIT_SUMMARY_OUTPUT),
         help="Spatial audit summary JSON.",
+    )
+    freeze_pilot = indeci_commands.add_parser(
+        "freeze-pilot-validation",
+        help="Freeze the explicit researcher-approved pilot decisions.",
+    )
+    freeze_pilot.add_argument(
+        "--documents",
+        default=str(ALL_DOCUMENTS_OUTPUT),
+        help="Full document inventory CSV.",
+    )
+    freeze_pilot.add_argument(
+        "--filtered-documents",
+        default=str(FILTER_DOCUMENTS_OUTPUT),
+        help="A1.16 filtered document CSV.",
+    )
+    freeze_pilot.add_argument(
+        "--filtered-candidates",
+        default=str(FILTER_CANDIDATES_OUTPUT),
+        help="A1.16 filtered candidate CSV.",
+    )
+    freeze_pilot.add_argument(
+        "--config",
+        default=str(PILOT_VALIDATION_CONFIG),
+        help="Versioned human pilot decision.",
+    )
+    freeze_pilot.add_argument(
+        "--decisions-output",
+        default=str(PILOT_HUMAN_DECISIONS_OUTPUT),
+        help="Frozen human decision CSV.",
+    )
+    freeze_pilot.add_argument(
+        "--retained-output",
+        default=str(PILOT_RETAINED_DOCUMENTS_OUTPUT),
+        help="Retained P1/P2 document CSV.",
+    )
+    freeze_pilot.add_argument(
+        "--excluded-output",
+        default=str(PILOT_EXCLUDED_DOCUMENTS_OUTPUT),
+        help="Excluded PX document CSV.",
+    )
+    freeze_pilot.add_argument(
+        "--summary-output",
+        default=str(PILOT_VALIDATION_SUMMARY_OUTPUT),
+        help="Pilot validation summary JSON.",
+    )
+    final_package = indeci_commands.add_parser(
+        "build-final-pilot-package",
+        help="Build the final local package containing only human includes.",
+    )
+    final_package.add_argument(
+        "--filtered-documents",
+        default=str(FILTER_DOCUMENTS_OUTPUT),
+        help="A1.16 filtered document CSV.",
+    )
+    final_package.add_argument(
+        "--decisions",
+        default=str(PILOT_HUMAN_DECISIONS_OUTPUT),
+        help="Frozen human decision CSV.",
+    )
+    final_package.add_argument(
+        "--retained-documents",
+        default=str(PILOT_RETAINED_DOCUMENTS_OUTPUT),
+        help="Retained P1/P2 document CSV.",
+    )
+    final_package.add_argument(
+        "--output-dir",
+        default=str(FINAL_PILOT_PACKAGE_OUTPUT),
+        help="New final package directory; existing content is not overwritten.",
     )
     batch_summary = indeci_commands.add_parser(
         "batch-summary",
