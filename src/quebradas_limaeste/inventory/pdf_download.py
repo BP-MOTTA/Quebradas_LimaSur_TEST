@@ -213,7 +213,7 @@ def download_discovered_pdf(
     if (
         isinstance(storage_year, bool)
         or not isinstance(storage_year, int)
-        or not 2012 <= storage_year <= 2100
+        or not 2010 <= storage_year <= 2100
     ):
         raise DownloadError("storage_year is outside the allowed range")
     try:

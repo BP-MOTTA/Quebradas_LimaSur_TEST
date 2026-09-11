@@ -1,0 +1,43 @@
+{
+  "period": {
+    "start_year": 2010,
+    "end_year": 2026,
+    "blocks": [[2010, 2014], [2015, 2019], [2020, 2022], [2023, 2026]]
+  },
+  "network": {
+    "request_delay_seconds": 0.5,
+    "timeout_seconds": 15.0,
+    "retry_backoff_seconds": 2.0,
+    "max_attempts": 2,
+    "max_pages_per_query": 1
+  },
+  "connectors": {
+    "archive_informes": "https://portal.indeci.gob.pe/informe/reportes-preliminares-complementarios-emergencias/",
+    "archive_emergencias": "https://portal.indeci.gob.pe/informe/informe-de-emergencia/",
+    "seed_config": "configs/sources/indeci_seed_documents.yaml"
+  },
+  "query_terms": [
+    "Chaclacayo",
+    "Lurigancho",
+    "Lurigancho-Chosica",
+    "Lima",
+    "huaico",
+    "huayco",
+    "lluvias intensas",
+    "activación de quebrada",
+    "flujo de detritos",
+    "movimiento en masa",
+    "inundación",
+    "desborde"
+  ],
+  "pipeline": {
+    "ingestion_config": "configs/sources/indeci_cusipata.yaml",
+    "filter_config": "configs/sources/indeci_limaeste_filter.yaml",
+    "filter_config_sha256": "62d151509be7c4310bfc91b3d2b68708474051e856b494304ae16b2bc9c790c0",
+    "quality_config": "configs/sources/indeci_candidate_quality.yaml"
+  },
+  "px_control": {
+    "seed": "a1.19-cusipata-historical-v1",
+    "sample_size": 10
+  }
+}

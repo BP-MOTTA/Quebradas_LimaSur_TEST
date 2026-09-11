@@ -10,6 +10,7 @@ VENV_PYTHON := $(VENV)/bin/python
 .PHONY: indeci-filter-limaeste indeci-build-limaeste-review-package
 .PHONY: indeci-audit-spatial-false-negatives
 .PHONY: indeci-freeze-pilot-validation indeci-build-final-pilot-package
+.PHONY: indeci-historical-discovery indeci-historical-run
 .PHONY: gis features dataset train evaluate report
 
 setup:
@@ -102,6 +103,18 @@ indeci-freeze-pilot-validation:
 
 indeci-build-final-pilot-package:
 	$(VENV_PYTHON) -m quebradas indeci build-final-pilot-package
+
+indeci-historical-discovery:
+	@test "$$GITHUB_ACTIONS" != "true" || \
+		(echo "INDECI historical discovery is disabled in GitHub Actions" >&2; exit 2)
+	$(VENV_PYTHON) -m quebradas indeci historical-discovery \
+		--config configs/sources/indeci_historical_cusipata.yaml
+
+indeci-historical-run:
+	@test "$$GITHUB_ACTIONS" != "true" || \
+		(echo "INDECI historical run is disabled in GitHub Actions" >&2; exit 2)
+	$(VENV_PYTHON) -m quebradas indeci historical-run \
+		--config configs/sources/indeci_historical_cusipata.yaml
 
 gis:
 	@echo "GIS pipeline is not implemented in this phase."

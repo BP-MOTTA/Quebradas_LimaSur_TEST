@@ -66,8 +66,8 @@ class PortalQuery:
         )
         if isinstance(year, bool) or not isinstance(year, int):
             raise LiveSmokeConfigError("query year must be an integer")
-        if year < 2012 or year > 2100:
-            raise LiveSmokeConfigError("query year must be between 2012 and 2100")
+        if year < 2010 or year > 2100:
+            raise LiveSmokeConfigError("query year must be between 2010 and 2100")
         return cls(title=clean_title, alert_type=clean_type, year=year)
 
     def to_dict(self) -> dict[str, object]:

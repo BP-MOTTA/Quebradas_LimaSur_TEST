@@ -46,6 +46,14 @@ from quebradas_limaeste.inventory.full_ingestion import (
     FullIngestionError,
     execute_full_ingestion,
 )
+from quebradas_limaeste.inventory.historical_discovery import (
+    HISTORICAL_CONFIG,
+    HISTORICAL_DISCOVERY_OUTPUT,
+    execute_historical_discovery,
+)
+from quebradas_limaeste.inventory.historical_inventory import (
+    execute_historical_inventory,
+)
 from quebradas_limaeste.inventory.human_review import (
     DOCUMENT_REVIEW_OUTPUT,
     HUMAN_REVIEW_OUTPUT,
@@ -124,6 +132,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "ingest-seeds",
         "ingest-batch",
         "ingest-discovery",
+        "historical-discovery",
+        "historical-run",
     }
     if (
         args.command in network_commands
@@ -139,6 +149,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_live_smoke(args)
     if args.command == "discover":
         return _run_discovery(args)
+    if args.command == "historical-discovery":
+        return _run_historical_discovery(args)
+    if args.command == "historical-run":
+        return _run_historical_inventory(args)
     if args.command == "select-batch":
         return _run_select_batch(args)
     if args.command == "ingest-batch":
@@ -200,6 +214,33 @@ def _run_discovery(args: argparse.Namespace) -> int:
         return 2
 
     _print_discovery_summary(payload)
+    return 0
+
+
+def _run_historical_discovery(args: argparse.Namespace) -> int:
+    try:
+        payload = execute_historical_discovery(
+            Path(args.config),
+            allowed_root=Path.cwd(),
+        )
+    except (DiscoveryConfigError, OSError, RuntimeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    _print_historical_summary(payload)
+    return 0
+
+
+def _run_historical_inventory(args: argparse.Namespace) -> int:
+    try:
+        payload = execute_historical_inventory(
+            Path(args.config),
+            discovery_path=Path(args.discovery),
+            allowed_root=Path.cwd(),
+        )
+    except (DiscoveryConfigError, OSError, RuntimeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    _print_historical_summary(payload)
     return 0
 
 
@@ -589,6 +630,29 @@ def _build_parser() -> argparse.ArgumentParser:
         "--run-output",
         default=str(DISCOVERY_RUN_OUTPUT),
         help="Discovery run manifest JSON.",
+    )
+    historical_discovery = indeci_commands.add_parser(
+        "historical-discovery",
+        help="Run resumable metadata discovery for the configured historical period.",
+    )
+    historical_discovery.add_argument(
+        "--config",
+        default=str(HISTORICAL_CONFIG),
+        help="Versioned historical source policy.",
+    )
+    historical_run = indeci_commands.add_parser(
+        "historical-run",
+        help="Download the controlled historical selection and build inventories.",
+    )
+    historical_run.add_argument(
+        "--config",
+        default=str(HISTORICAL_CONFIG),
+        help="Versioned historical source policy.",
+    )
+    historical_run.add_argument(
+        "--discovery",
+        default=str(HISTORICAL_DISCOVERY_OUTPUT),
+        help="Completed historical discovery CSV.",
     )
     select_batch = indeci_commands.add_parser(
         "select-batch",
@@ -1024,6 +1088,41 @@ def _print_discovery_summary(payload: dict[str, object]) -> None:
     for warning in payload["warnings"]:
         print(f"warning: {_terminal_safe(warning)}", file=sys.stderr)
     for error in payload["errors"]:
+        print(f"error: {_terminal_safe(error)}", file=sys.stderr)
+
+
+def _print_historical_summary(payload: dict[str, object]) -> None:
+    print("metric\tvalue")
+    for field in (
+        "period_start",
+        "period_end",
+        "documents_raw",
+        "documents_unique",
+        "duplicates",
+        "requests",
+        "pages",
+        "downloads",
+        "download_failures",
+        "ocr_required",
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "PX",
+        "event_candidates",
+        "event_clusters",
+        "strong",
+        "moderate",
+        "weak",
+        "px_sampled",
+        "px_false_negatives",
+        "resume_status",
+    ):
+        if field in payload:
+            print(f"{field}\t{payload[field]}")
+    for warning in payload.get("warnings", []):
+        print(f"warning: {_terminal_safe(warning)}", file=sys.stderr)
+    for error in payload.get("errors", []):
         print(f"error: {_terminal_safe(error)}", file=sys.stderr)
 
 

@@ -78,3 +78,13 @@ until ingestion. Complete report identity (`report_number`, `report_type`, and
 `report_date`) is the next signal, and normalized title is secondary. Conflicts
 between different PDF URLs are retained as ambiguous records rather than merged
 destructively.
+
+## Historical policy
+
+A1.19 reuses these same connectors for every year from 2010 through 2026. Its
+versioned policy and bounded query terms are in
+`configs/sources/indeci_historical_cusipata.yaml`. Each year is checkpointed
+independently, including years with zero rows or partial connector failures.
+The one-page cap remains in force, so the resulting inventory is traceable but
+not exhaustive. Historical execution is explicit, disabled in CI, and described
+in `docs/indeci_historical_inventory.md`.

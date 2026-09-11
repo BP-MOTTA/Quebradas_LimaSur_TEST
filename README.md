@@ -33,6 +33,8 @@ make indeci-build-limaeste-review-package
 make indeci-audit-spatial-false-negatives
 make indeci-freeze-pilot-validation
 make indeci-build-final-pilot-package
+make indeci-historical-discovery
+make indeci-historical-run
 ```
 
 `make inventory` ejecuta un flujo offline sobre una fixture sintetica de prueba y
@@ -236,6 +238,32 @@ copias PDF verificadas por SHA-256. Ambos se niegan a sobrescribir decisiones o
 paquetes existentes. El contrato se documenta en
 `docs/indeci_pilot_validation.md`.
 
+El inventario histórico A1.19 amplía el discovery a cada año de 2010 a 2026 y
+guarda checkpoints reanudables por año:
+
+```bash
+python -m quebradas indeci historical-discovery \
+  --config configs/sources/indeci_historical_cusipata.yaml
+```
+
+Después de revisar la configuración y el discovery, la corrida controlada
+descarga P1-P4 y una muestra PX determinista, reutiliza el pipeline documental
+existente y genera inventarios y resúmenes bajo
+`metadata/indeci/historical/`:
+
+```bash
+python -m quebradas indeci historical-run \
+  --config configs/sources/indeci_historical_cusipata.yaml
+```
+
+Ambos comandos usan red, están deshabilitados en GitHub Actions y no se ejecutan
+desde CI. Los metadatos de todos los hallazgos se conservan aunque un documento
+no sea seleccionado o falle. Un PX no es un evento negativo; si la muestra PX
+encuentra evidencia que cambia su prioridad, la expansión PX restante se
+detiene. Los PDFs, candidatos y clusters no crean ground truth ni etiquetas de
+entrenamiento. El contrato completo está en
+`docs/indeci_historical_inventory.md`.
+
 Las opciones de ruta de ambos comandos permiten revisar un batch aislado dentro
 del workspace. El contrato de campos y las salvaguardas se detallan en
 `docs/indeci_human_review.md`.
@@ -305,6 +333,5 @@ python -m quebradas indeci compare-golden-controls \
 El resultado runtime `metadata/indeci/golden_controls.json` contiene unicamente
 el `document_id` y los conteos `strong`, `moderate` y `weak` de cada control.
 
-`historical` y `upload-drive` permanecen fuera de alcance. Cualquier barrido
-historico, URL real adicional o uso de Google Drive requiere aprobacion
-separada.
+`upload-drive` permanece fuera de alcance. Cualquier uso de Google Drive requiere
+aprobacion separada.

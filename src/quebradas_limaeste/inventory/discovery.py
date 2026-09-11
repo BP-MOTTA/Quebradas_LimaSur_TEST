@@ -265,10 +265,11 @@ def run_discovery(
     *,
     years: tuple[int, ...],
     connectors: Sequence[DiscoveryConnector],
+    allowed_years: tuple[int, ...] = PILOT_YEARS,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> DiscoveryRun:
     """Run each connector sequentially; one connector failure remains local."""
-    selected_years = _validate_requested_years(years)
+    selected_years = _validate_requested_years(years, allowed=allowed_years)
     connector_names = tuple(_safe_connector_label(item.name) for item in connectors)
     if len(set(connector_names)) != len(connector_names):
         raise DiscoveryConfigError("connector names must be unique")

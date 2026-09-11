@@ -53,4 +53,5 @@ metadata/indeci/pilot_human_decisions.csv
 metadata/indeci/pilot_retained_documents.csv
 metadata/indeci/pilot_excluded_documents.csv
 metadata/indeci/pilot_validation_summary.json
+metadata/indeci/historical/**
 review_packages/

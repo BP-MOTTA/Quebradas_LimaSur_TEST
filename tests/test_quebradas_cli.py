@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from quebradas import __main__ as quebradas_cli
 
 
@@ -109,6 +111,90 @@ def test_cli_blocks_full_ingestion_inside_github_actions(monkeypatch, capsys) ->
 
     assert exit_code == 2
     assert "disabled in GitHub Actions" in capsys.readouterr().err
+
+
+def test_cli_blocks_historical_commands_inside_github_actions(
+    monkeypatch, capsys
+) -> None:
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+
+    discovery = quebradas_cli.main(["indeci", "historical-discovery"])
+    run = quebradas_cli.main(["indeci", "historical-run"])
+
+    assert discovery == 2
+    assert run == 2
+    errors = capsys.readouterr().err
+    assert "historical-discovery is disabled" in errors
+    assert "historical-run is disabled" in errors
+
+
+def test_cli_runs_historical_discovery(monkeypatch, capsys) -> None:
+    calls = []
+
+    def fake_execute(config_path, *, allowed_root):
+        calls.append((config_path, allowed_root))
+        return {
+            "period_start": 2010,
+            "period_end": 2026,
+            "documents_raw": 12,
+            "documents_unique": 10,
+            "duplicates": 2,
+            "requests": 20,
+            "pages": 18,
+            "resume_status": "completed_from_checkpoints",
+            "warnings": [],
+            "errors": [],
+        }
+
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.setattr(quebradas_cli, "execute_historical_discovery", fake_execute)
+
+    exit_code = quebradas_cli.main(["indeci", "historical-discovery"])
+
+    assert exit_code == 0
+    assert calls[0][1] == Path.cwd()
+    output = capsys.readouterr().out
+    assert "period_start\t2010" in output
+    assert "documents_unique\t10" in output
+
+
+def test_cli_runs_historical_inventory(monkeypatch, capsys) -> None:
+    calls = []
+
+    def fake_execute(config_path, *, discovery_path, allowed_root):
+        calls.append((config_path, discovery_path, allowed_root))
+        return {
+            "period_start": 2010,
+            "period_end": 2026,
+            "documents_raw": 10,
+            "documents_unique": 9,
+            "duplicates": 1,
+            "downloads": 4,
+            "download_failures": 1,
+            "P1": 1,
+            "P2": 1,
+            "P3": 0,
+            "P4": 1,
+            "PX": 7,
+            "event_candidates": 2,
+            "event_clusters": 1,
+            "px_sampled": 1,
+            "px_false_negatives": 0,
+            "resume_status": "completed_from_checkpoints",
+            "warnings": [],
+            "errors": [],
+        }
+
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    monkeypatch.setattr(quebradas_cli, "execute_historical_inventory", fake_execute)
+
+    exit_code = quebradas_cli.main(["indeci", "historical-run"])
+
+    assert exit_code == 0
+    assert calls[0][2] == Path.cwd()
+    output = capsys.readouterr().out
+    assert "downloads\t4" in output
+    assert "px_false_negatives\t0" in output
 
 
 def test_cli_runs_full_discovery_ingestion(monkeypatch, capsys) -> None:

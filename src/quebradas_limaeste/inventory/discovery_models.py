@@ -95,9 +95,9 @@ class DiscoveryCandidate:
         if (
             isinstance(year, bool)
             or not isinstance(year, int)
-            or not 2012 <= year <= 2100
+            or not 2010 <= year <= 2100
         ):
-            raise DiscoveryConfigError("year must be an integer between 2012 and 2100")
+            raise DiscoveryConfigError("year must be an integer between 2010 and 2100")
         if (
             not isinstance(discovered_at_utc, datetime)
             or discovered_at_utc.tzinfo is None
